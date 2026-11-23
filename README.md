@@ -54,6 +54,8 @@ The generated native projects live under `ios/` and `android/`. Platform signing
 
 For the secondary HTTPS research build, run `pnpm research:build` and deploy `dist/`; `netlify.toml` provides SPA fallback configuration.
 
+Verified public research build: [fridgemind-research-v011.ampleartichoke32.chatgpt.site](https://fridgemind-research-v011.ampleartichoke32.chatgpt.site). This is a browser-accessible study/backup route, not the primary product identity.
+
 ## Demo mode
 
 Complete the four-step setup as Alex, or use **Settings → Reset demo**. **Settings → Demo / Research Mode** switches between use-soon, uncertain stock, quiet hours, recent dismissal and saved-recipe scenarios. See [`docs/10_DEMO_SCRIPT.md`](docs/10_DEMO_SCRIPT.md) for a presenter-ready walkthrough.

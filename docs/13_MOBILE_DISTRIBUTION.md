@@ -61,12 +61,13 @@ The static Vite build contains demo/local data only and no participant-sensitive
 pnpm research:build
 ```
 
-Deploy `dist/` to an HTTPS static host with SPA fallback to `index.html`. `netlify.toml` contains a ready configuration; equivalent Cloudflare Pages or Vercel hosting is acceptable.
+Deploy `dist/` to an HTTPS static host with SPA fallback to `index.html`. `netlify.toml` contains a portable configuration; the verified research deployment for this iteration is hosted through ChatGPT Sites.
 
 Configuration location: `netlify.toml`  
 Build command: `pnpm build`  
 Publish directory: `dist`  
-Redeployment: push the same source to the connected host or run the host’s deployment workflow again. Record the final URL in this document before participant recruitment.
+Sites project binding: `.openai/hosting.json`  
+Redeployment: build, push the same source commit to the bound source repository, save a new site version from `dist/`, then deploy that version. Record the deployed version in the study log before participant recruitment.
 
 ## Final demonstration
 
@@ -78,8 +79,11 @@ Redeployment: push the same source to the connected host or run the host’s dep
 
 - iOS project: generated and synchronised. Xcode 27.2 is installed. A command-line simulator build is recorded in the verification devlog; simulator UI availability depends on an installed/working runtime.
 - Android project: generated and synchronised. This machine currently has no Java runtime or Android SDK, so an APK/emulator run cannot be honestly claimed here.
-- Web research build: production build and mobile browser smoke tests are automated. Deployment status and URL are recorded below when available.
+- Web research build: production build and mobile browser smoke tests are automated. A public HTTPS deployment is recorded below.
 
 ### Public research build status
 
-Prepared for HTTPS static deployment. The V0.1.1 demo does not collect participant-sensitive data. If a deployment URL is produced during this iteration, it must be entered here and in the final report; otherwise public hosting remains an explicit external-account step.
+**Status:** deployed and publicly reachable through ChatGPT Sites.  
+**URL:** <https://fridgemind-research-v011.ampleartichoke32.chatgpt.site>  
+**Build:** `pnpm build`, static output from `dist/`, SPA fallback handled by the host.  
+**Content boundary:** the V0.1.1 demo contains seeded/local demo data and does not upload participant photos or other participant-sensitive data. Browser storage remains local to that browser. Host availability is still an external dependency, so the installed-app build remains the primary demonstration route.
