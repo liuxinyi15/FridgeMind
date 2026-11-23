@@ -1,0 +1,18 @@
+import { decideIntervention } from '../domain/interventionEngine';
+import type { InventoryConfidence } from '../domain/types';
+import { useAppState } from '../state/AppState';
+import { StatusChip } from '../components/StatusChip';
+
+const scenarios = [
+  { id: 'use-soon', label: 'A · Spinach priority', description: 'Confirmed spinach is urgent and has actionable recipes.', urgency: 'high', confidence: 'confirmed', quiet: false, dismissals: 0, actionable: 'high', recipe: true },
+  { id: 'uncertain', label: 'B · Quantity uncertain', description: 'Cream is present but its amount needs confirmation.', urgency: 'medium', confidence: 'needs_confirmation', quiet: false, dismissals: 0, actionable: 'high', recipe: true },
+  { id: 'quiet', label: 'C · Quiet Hours', description: 'A useful opportunity occurs while interruptions are paused.', urgency: 'high', confidence: 'confirmed', quiet: true, dismissals: 0, actionable: 'high', recipe: true },
+  { id: 'dismissed', label: 'D · Recently dismissed', description: 'A similar reminder was recently dismissed.', urgency: 'high', confidence: 'confirmed', quiet: false, dismissals: 1, actionable: 'high', recipe: true },
+  { id: 'saved-recipe', label: 'E · Saved recipe match', description: 'A saved recipe can use a confirmed use-soon ingredient.', urgency: 'high', confidence: 'confirmed', quiet: false, dismissals: 0, actionable: 'high', recipe: true },
+] as const;
+
+export function ResearchModePage() {
+  const { data, actions } = useAppState(); const scenario = scenarios.find((item) => item.id === data.researchScenario) ?? scenarios[0];
+  const result = decideIntervention({ foodUrgency: scenario.urgency, inventoryConfidence: scenario.confidence as InventoryConfidence, preferences: data.profile.notifications, isQuietHours: scenario.quiet, recentDismissals: scenario.dismissals, actionability: scenario.actionable, recipeAvailable: scenario.recipe });
+  return <div className="page-stack narrow-page"><section><span className="kicker">Demo / Research Mode</span><h1>Reproduce the sensing loop</h1><p>Switch a controlled state, inspect the decision, and discuss the hypothesis with the same demo data.</p></section><section className="scenario-list" aria-label="Research scenarios">{scenarios.map((item) => <button key={item.id} className={scenario.id === item.id ? 'selected' : ''} onClick={() => actions.setResearchScenario(item.id)}><span aria-hidden="true">{scenario.id === item.id ? '●' : '○'}</span><span><strong>{item.label}</strong><small>{item.description}</small></span></button>)}</section><section className="decision-card"><div className="section-heading compact"><div><span className="kicker">Engine output</span><h2>{result.decision.replaceAll('_', ' ')}</h2></div><StatusChip tone={result.decision === 'notify' ? 'warn' : result.decision === 'stay_silent' ? 'neutral' : 'info'}>{result.decision}</StatusChip></div><h3>Why this decision?</h3><ul>{result.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><div className="decision-factors"><span>Urgency <strong>{scenario.urgency}</strong></span><span>Confidence <strong>{scenario.confidence.replace('_', ' ')}</strong></span><span>Quiet <strong>{scenario.quiet ? 'yes' : 'no'}</strong></span><span>Recent dismissals <strong>{scenario.dismissals}</strong></span><span>Actionable <strong>{scenario.actionable}</strong></span><span>Recipe <strong>{scenario.recipe ? 'available' : 'none'}</strong></span></div></section><aside className="evidence-banner"><strong>Research interpretation</strong><p>This simulator makes a design hypothesis reproducible. Its thresholds and outputs have not been validated with target users.</p></aside></div>;
+}
