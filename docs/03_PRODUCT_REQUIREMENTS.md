@@ -21,3 +21,11 @@ Semantic and keyboard-operable UI; visible focus; status conveyed by text plus i
 ## Out of scope
 
 Production CV/OCR, LLM dependency, nutrition/medical advice, supermarket APIs, backend/authentication, multi-user/multi-device sync, payments, automatic purchasing and smart-fridge hardware.
+
+## V0.1.1 mobile and distribution requirements
+
+- The primary product is an iOS/Android mobile app; the web build is secondary research distribution.
+- The same domain code and local demo data must build for all three targets.
+- Native camera/notification access requires an in-product explanation before any OS prompt and a fully usable denial fallback.
+- Safe areas, portrait layout, bottom tabs, Android back and keyboard-open form behaviour must be explicitly handled.
+- A static HTTPS-ready build must support remote research without localhost or participant-sensitive data.

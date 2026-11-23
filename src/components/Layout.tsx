@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
+import { NativeRuntimeBridge } from './NativeRuntimeBridge';
 
 const navItems = [
   { to: '/', label: 'Today', icon: '⌂' },
@@ -15,6 +16,7 @@ export function Layout() {
   const isDetail = !['/', '/fridge', '/recipes', '/shopping'].includes(location.pathname);
   return (
     <div className="app-shell">
+      <NativeRuntimeBridge />
       <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="app-header">
         <div className="header-inner">

@@ -10,6 +10,7 @@ import { UseSoonCard } from './UseSoonCard';
 import { HabitInsight } from './HabitInsight';
 import { RecipeDetailPage } from '../pages/RecipeDetailPage';
 import { ShoppingPage } from '../pages/ShoppingPage';
+import { AddFoodPage } from '../pages/AddFoodPage';
 
 function renderWithState(ui: React.ReactNode) {
   return render(<MemoryRouter><AppStateProvider>{ui}</AppStateProvider></MemoryRouter>);
@@ -68,5 +69,16 @@ describe('Shopping List', () => {
     expect(screen.getByText(/You have 120g/)).toBeVisible();
     await userEvent.click(screen.getByRole('checkbox'));
     expect(screen.getByRole('checkbox')).toBeChecked();
+  });
+});
+
+describe('Add Food permission fallback', () => {
+  it('explains image access before continuing and preserves manual entry', async () => {
+    render(<MemoryRouter initialEntries={['/fridge/add']}><AppStateProvider><Routes><Route path="/fridge/add" element={<AddFoodPage />} /><Route path="/fridge" element={<div>Fridge</div>} /></Routes></AppStateProvider></MemoryRouter>);
+    await userEvent.click(screen.getByRole('button', { name: /Take a photo/ }));
+    expect(screen.getByRole('dialog', { name: 'You stay in control' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Use manual entry' }));
+    expect(screen.getByLabelText('Food name')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save to My Fridge' })).toBeEnabled();
   });
 });

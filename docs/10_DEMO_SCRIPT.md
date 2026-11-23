@@ -2,7 +2,9 @@
 
 ## Preparation
 
-Run `pnpm install`, `pnpm dev`, open the displayed URL, choose **Reset demo** in Settings, then complete the four short onboarding steps as Alex. Alex is a walkthrough persona only.
+Preferred: install/sync the V0.1.1 app using the platform route in `13_MOBILE_DISTRIBUTION.md`. Backup: open the hosted HTTPS research build. Choose **Reset demo** in Settings, then complete the four short onboarding steps as Alex. Alex is a walkthrough persona only.
+
+Before the core flow, demonstrate **My Fridge → Add food → Take a photo**. Explain the pre-permission sheet, choose **Use manual entry**, and show that denial never blocks the task. On a signed device build, Continue opens the real Camera plugin; recognition after capture is still explicitly simulated.
 
 ## Scenario 1 — Decide what to cook
 
@@ -35,3 +37,7 @@ Settings → Habit insight. Read the evidence and proposed weekday-lunch change,
 ## Scenario 8 — Research Mode
 
 Settings → Research Mode. Switch between spinach priority, uncertain quantity, quiet hours, recently dismissed and saved-recipe opportunity. Observe the decision (`notify`, `ask_for_confirmation`, `show_in_app`, `stay_silent`) and explanation update live.
+
+## Scenario 9 — Native notification permission
+
+On an installed app, open Settings → OS notifications. Read the explanation before continuing to the OS prompt. If granted, **Send real notification preview** schedules a local notification through Capacitor. If denied—or when using the web fallback—Food Rescue remains fully visible inside Today. Do not describe this as background sensing or remote push.

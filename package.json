@@ -1,17 +1,30 @@
 {
   "name": "fridgemind",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "screenshots": "playwright test e2e/screenshots.spec.ts",
-    "smoke": "playwright test e2e/smoke.spec.ts"
+    "screenshots": "playwright test e2e/screenshots-v0.1.1.spec.ts",
+    "screenshots:v0.1": "playwright test e2e/screenshots.spec.ts",
+    "smoke": "playwright test e2e/smoke.spec.ts",
+    "research:build": "pnpm build",
+    "mobile:copy": "pnpm build && cap copy",
+    "mobile:sync": "pnpm build && cap sync",
+    "mobile:ios": "pnpm mobile:sync && cap open ios",
+    "mobile:android": "pnpm mobile:sync && cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "latest",
+    "@capacitor/app": "latest",
+    "@capacitor/camera": "latest",
+    "@capacitor/core": "latest",
+    "@capacitor/ios": "latest",
+    "@capacitor/keyboard": "latest",
+    "@capacitor/local-notifications": "latest",
     "@vitejs/plugin-react": "latest",
     "vite": "latest",
     "typescript": "latest",
@@ -20,6 +33,7 @@
     "react-router-dom": "latest"
   },
   "devDependencies": {
+    "@capacitor/cli": "latest",
     "@playwright/test": "latest",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",

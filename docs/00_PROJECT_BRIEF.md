@@ -4,7 +4,7 @@
 
 FridgeMind explores how a proactive, personalised food-planning system might help adults living alone use existing ingredients, decide what to cook, and plan shopping with less administration while retaining control.
 
-The V0.1 outcome is an HCI functional demo, not a validated commercial product. It demonstrates one coherent loop: decide what to cook → inspect stock → scale a recipe → identify gaps → shop → cook → minimally correct inventory → receive an explainable food-rescue opportunity.
+V0.1.0 is frozen as the Functional Interaction Prototype. V0.1.1 packages the same evidence-informed loop as the primary installable mobile prototype using Capacitor, while retaining a web-accessible research/fallback build. Neither version is a validated commercial product.
 
 ## Evidence labels
 

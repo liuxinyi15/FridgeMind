@@ -20,3 +20,22 @@ Pages dispatch actions to `AppState`; state persists through repository interfac
 ## Inventory semantics
 
 Each batch keeps `physicalStock`, `reservedStock`, and derived `availableToPlan`. V0.1 reserves no stock by default but preserves the distinction in the model.
+
+## V0.1.1 platform boundary
+
+The React/TypeScript application, domain logic, seed data and local repositories remain shared across Web, iOS and Android. Capacitor packages the same `dist/` output into native projects.
+
+```text
+InterventionEngine (pure domain)
+        ↓ InterventionDecision
+NotificationAdapter
+        ├── InAppNotificationAdapter
+        └── NativeLocalNotificationAdapter (Capacitor)
+
+Add Food UI
+        ↓ after pre-permission explanation
+FoodCameraAdapter
+        └── Capacitor Camera on native / browser picker fallback on web
+```
+
+`NativeRuntimeBridge` adds Android back-button and keyboard-aware navigation behaviour without leaking native APIs into the domain layer. Safe areas are handled through CSS environment insets. Installed native state remains local-first in the WebView; the public research build uses the same repository contract.
