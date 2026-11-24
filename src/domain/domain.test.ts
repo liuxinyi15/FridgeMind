@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSeedData } from '../data/seed';
-import { matchRecipe, scaleIngredients } from './inventory';
-import { scoreRecipe } from './recommendationEngine';
+import { deductIngredient, matchRecipe, recipeAvailability, scaleIngredients } from './inventory';
+import { rankRecipes, scoreRecipe } from './recommendationEngine';
 import { decideIntervention } from './interventionEngine';
 import { respondToHabit } from './habit';
 
@@ -36,6 +36,36 @@ describe('recommendation scoring', () => {
     expect(score.useSoonCoverage).toBeGreaterThan(0);
     expect(score.reasons.join(' ')).toContain('used soon');
     expect(score.score).toBeGreaterThan(0.4);
+  });
+
+  it('stores real availability semantics and handles decision-point uncertainty', () => {
+    const data = createSeedData();
+    const recipe = data.recipes.find((item) => item.id === 'recipe-spinach-pasta')!;
+    const uncertain = matchRecipe(recipe, 2, data.inventory);
+    expect(recipeAvailability(uncertain, recipe.minutes)).toBe('READY_WITH_UNCERTAINTY');
+    const cream = data.inventory.find((item) => item.canonicalName === 'cream')!;
+    cream.batches[0].minimumStockConfirmed = 100;
+    expect(recipeAvailability(matchRecipe(recipe, 2, data.inventory), recipe.minutes)).toBe('READY');
+    expect(cream.batches[0].physicalStock).toBeNull();
+  });
+
+  it('keeps temporary and persistent feedback distinct', () => {
+    const data = createSeedData();
+    const now = new Date('2026-11-24T18:00:00Z');
+    const recipeId = 'recipe-spinach-pasta';
+    const temporary = [{ id: 'f1', recipeId, action: 'not_in_mood' as const, createdAt: now.toISOString(), active: true }];
+    expect(rankRecipes(data.recipes, data.inventory, 2, data.savedRecipes, { feedback: temporary, now }).some((entry) => entry.recipe.id === recipeId)).toBe(false);
+    expect(rankRecipes(data.recipes, data.inventory, 2, data.savedRecipes, { feedback: temporary, now: new Date('2026-11-25T18:00:00Z') }).some((entry) => entry.recipe.id === recipeId)).toBe(true);
+    const persistent = [{ ...temporary[0], action: 'never_recommend' as const }];
+    expect(rankRecipes(data.recipes, data.inventory, 2, data.savedRecipes, { feedback: persistent, now: new Date('2027-01-01T18:00:00Z') }).some((entry) => entry.recipe.id === recipeId)).toBe(false);
+  });
+
+  it('never creates negative inventory while preserving approximate mode', () => {
+    const data = createSeedData();
+    const rice = data.inventory.find((item) => item.canonicalName === 'rice')!;
+    const updated = deductIngredient(rice, 999, 'g');
+    expect(updated.batches[0].physicalStock).toBe(0);
+    expect(updated.batches[0].quantityMode).toBe('approximate');
   });
 });
 

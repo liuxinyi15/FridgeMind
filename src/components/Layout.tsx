@@ -1,8 +1,9 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useLayoutEffect } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useAppState } from '../state/AppState';
 import { NativeRuntimeBridge } from './NativeRuntimeBridge';
 import { Icon, type IconName } from './Icon';
+import { UsabilityTaskPrompt } from './UsabilityTaskPrompt';
 
 const navItems = [
   { to: '/', label: 'Today', icon: 'home' },
@@ -12,9 +13,13 @@ const navItems = [
 ];
 
 export function Layout() {
-  const { data } = useAppState();
+  const { data, actions } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
+  const visited = useRef(false);
+  const session = data.usabilitySessions.find((entry) => entry.id === data.currentUsabilitySessionId);
+  const activeRun = session?.currentTaskId ? [...session.taskRuns].reverse().find((entry) => entry.taskId === session.currentTaskId) : undefined;
   const isDetail = !['/', '/fridge', '/recipes', '/shopping'].includes(location.pathname);
   useLayoutEffect(() => {
     const reset = () => {
@@ -26,6 +31,31 @@ export function Layout() {
     const frame = window.requestAnimationFrame(reset);
     return () => window.cancelAnimationFrame(frame);
   }, [location.pathname]);
+  useEffect(() => {
+    if (!activeRun || activeRun.status !== 'running') return;
+    actions.logUsabilityEvent('page_visited', undefined, location.pathname);
+    if (/^\/recipes\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/import')) actions.logUsabilityEvent('recipe_opened', { recipeId: location.pathname.split('/').pop() ?? '' }, location.pathname);
+    if (visited.current && navigationType === 'POP') actions.logUsabilityEvent('back_navigation', undefined, location.pathname);
+    visited.current = true;
+  }, [location.pathname, navigationType, activeRun?.status, activeRun?.startedAt]);
+  useEffect(() => {
+    if (!activeRun || activeRun.status !== 'running') return;
+    const capture = (event: MouseEvent) => {
+      const control = (event.target as HTMLElement).closest('button, a, summary') as HTMLElement | null;
+      if (!control || control.closest('[data-usability-control]')) return;
+      const label = (control.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      if (control.tagName === 'SUMMARY') {
+        if (/why this suggestion/i.test(label)) actions.logUsabilityEvent('recommendation_explanation_opened', { label });
+        else if (/more/i.test(label)) actions.logUsabilityEvent('more_opened', { label });
+        else actions.logUsabilityEvent('explanatory_disclosure_opened', { label });
+        return;
+      }
+      if (control.classList.contains('primary')) actions.logUsabilityEvent('primary_cta_clicked', { label });
+      else if (control.classList.contains('secondary') || control.classList.contains('ghost') || control.classList.contains('text-button')) actions.logUsabilityEvent('secondary_cta_clicked', { label });
+    };
+    document.addEventListener('click', capture);
+    return () => document.removeEventListener('click', capture);
+  }, [activeRun?.status, activeRun?.startedAt]);
   return (
     <div className="app-shell">
       <NativeRuntimeBridge />
@@ -40,6 +70,7 @@ export function Layout() {
           <NavLink className="avatar-link" to="/settings" aria-label="Open settings">{data.profile.name.slice(0, 1)}</NavLink>
         </div>
       </header>
+      <UsabilityTaskPrompt />
       <main id="main-content" className="page-content" tabIndex={-1}><Outlet /></main>
       <nav className="bottom-nav" aria-label="Primary navigation">
         {navItems.map((item) => (

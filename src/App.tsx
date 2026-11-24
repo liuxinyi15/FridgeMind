@@ -13,6 +13,7 @@ import { ShoppingPage } from './pages/ShoppingPage';
 import { CookingPage } from './pages/CookingPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ResearchModePage } from './pages/ResearchModePage';
+import { UsabilityTestPage } from './pages/UsabilityTestPage';
 
 export function App() {
   const { data } = useAppState();
@@ -31,6 +32,7 @@ export function App() {
         <Route path="shopping" element={<ShoppingPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="settings/research" element={<ResearchModePage />} />
+        <Route path="settings/research/usability" element={<UsabilityTestPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

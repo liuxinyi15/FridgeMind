@@ -15,9 +15,16 @@ test('core FridgeMind journey remains linked', async ({ page }) => {
   await page.goto('/recipes/recipe-mushroom-pasta');
   await page.getByRole('button', { name: 'Increase portions' }).click();
   await page.getByRole('button', { name: 'Start cooking' }).click();
+  await expect(page.getByRole('heading', { name: 'Cream amount is uncertain' })).toBeVisible();
+  await page.getByRole('button', { name: 'Yes' }).click();
+  await page.getByRole('button', { name: 'Start cooking' }).click();
   await page.getByRole('button', { name: 'Finish cooking' }).click();
-  await expect(page.getByRole('heading', { name: 'Did anything change?' })).toBeVisible();
-  await page.getByRole('button', { name: 'Update My Fridge' }).click();
+  await expect(page.getByRole('heading', { name: 'Dinner done?' })).toBeVisible();
+  await page.getByRole('button', { name: 'I changed the recipe' }).click();
+  await expect(page.getByRole('heading', { name: 'What changed?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'No leftovers' }).click();
+  await page.getByRole('link', { name: 'Fridge' }).click();
   await expect(page.getByRole('heading', { name: 'My Fridge' })).toBeVisible();
   await page.goto('/');
   await page.getByText('More options').click();

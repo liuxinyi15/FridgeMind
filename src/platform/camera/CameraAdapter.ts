@@ -31,7 +31,7 @@ export class CapacitorFoodCameraAdapter implements FoodCameraAdapter {
   }
 
   async capture(purpose: CameraPurpose) {
-    if (!this.isAvailable()) throw new Error('Native camera is unavailable in the research web build.');
+    if (!this.isAvailable()) throw new Error('Camera capture is unavailable in this browser.');
     const photo = await Camera.getPhoto({
       resultType: CameraResultType.Uri,
       source: purpose === 'camera' ? CameraSource.Camera : CameraSource.Photos,

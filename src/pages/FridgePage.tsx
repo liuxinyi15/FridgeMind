@@ -23,7 +23,7 @@ export function FridgePage() {
 
   return (
     <div className="page-stack fridge-page">
-      <section className="page-title-row"><div><span className="overline">Your food</span><h1>My Fridge</h1><p>{data.inventory.length} ingredients · {useSoonCount ? `${useSoonCount} to use soon` : 'everything looks good'}</p></div><Link className="button primary add-food-button" to="/fridge/add"><Icon name="plus" size={19} /> <span>Add food</span></Link></section>
+      <section className="page-title-row"><div><span className="overline">Your food</span><h1>My Fridge</h1><p>{data.inventory.length} items · {useSoonCount ? `${useSoonCount} to use soon` : 'everything looks good'}</p></div><Link className="button primary add-food-button" to="/fridge/add"><Icon name="plus" size={19} /> <span>Add food</span></Link></section>
       {location.state?.cooked && <p className="inline-feedback" role="status">Nice work — your fridge is updated after cooking {location.state.cooked}.</p>}
       <section className="inventory-tools" aria-label="Find and filter food">
         <label className="search-field"><span className="sr-only">Search your fridge</span><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your fridge" /></label>
@@ -38,7 +38,7 @@ export function FridgePage() {
           const batch = food.batches[0]; const available = availableToPlan(batch);
           return <Link key={food.id} className="food-card" to={`/fridge/${food.id}`} aria-label={`${food.name}, ${available === null ? 'amount unknown' : `${available} ${batch.unit}`}. Edit details`}>
             <FoodIcon name={food.canonicalName} />
-            <div className="food-main"><div className="food-name-line"><h3>{food.name}</h3>{batch.state === 'use_soon' && <StatusChip tone="warn">Use soon</StatusChip>}</div><p>{available === null ? 'Amount needs checking' : `${available}${batch.unit} · ${batch.storage}`} · {dateLabel(batch.relevantDate, batch.dateType)}</p>{batch.confidence !== 'confirmed' && <span className="uncertainty-note"><Icon name="info" size={14} /> {batch.confidence === 'estimated' ? 'Estimated amount' : 'Tap to confirm amount'}</span>}</div>
+            <div className="food-main"><div className="food-name-line"><h3>{food.name}</h3>{food.kind === 'leftover' && <StatusChip tone="good">Leftover</StatusChip>}{batch.state === 'use_soon' && <StatusChip tone="warn">Use soon</StatusChip>}</div><p>{food.kind === 'leftover' ? `${food.portions} ${food.portions === 1 ? 'portion' : 'portions'} · Stored today` : `${available === null ? batch.quantityDescription || 'Some left' : batch.quantityMode === 'approximate' ? batch.quantityDescription || `about ${available}${batch.unit}` : `${available}${batch.unit}`} · ${batch.storage} · ${dateLabel(batch.relevantDate, batch.dateType)}`}</p>{batch.confidence !== 'confirmed' && <span className="uncertainty-note"><Icon name="info" size={14} /> {batch.confidence === 'estimated' ? 'Approximate amount' : 'Exact amount not needed until a recipe depends on it'}</span>}</div>
             <Icon className="row-chevron" name="chevron" size={18} />
           </Link>;
         })}</div> : <div className="empty-state compact"><FoodIcon name="salad" large /><h2>Nothing here</h2><p>Try another filter or add something new.</p></div>}

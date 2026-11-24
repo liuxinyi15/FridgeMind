@@ -39,10 +39,10 @@ export function NativeNotificationPermissionCard() {
 
   return <>
     <section className="settings-card native-capability-card" aria-labelledby="native-notifications-title">
-      <div><span className="kicker">Native capability</span><h2 id="native-notifications-title">OS notifications</h2><p>Delivery is kept separate from the intervention decision engine. In-app rescue always remains the fallback.</p></div>
-      <div className="capability-status"><span aria-hidden="true">{permission === 'granted' ? '✓' : available ? '○' : '—'}</span><div><strong>{permission === 'granted' ? 'Permission granted' : available ? 'Permission not enabled' : 'Available in the installed app'}</strong><small>{available ? 'This device can use Capacitor Local Notifications.' : 'The research web build does not request operating-system notification permission.'}</small></div></div>
+      <div><span className="kicker">Your choice</span><h2 id="native-notifications-title">Device notifications</h2><p>Food rescue stays available inside Today even when notifications are off.</p></div>
+      <div className="capability-status"><span aria-hidden="true">{permission === 'granted' ? '✓' : available ? '○' : '—'}</span><div><strong>{permission === 'granted' ? 'Permission granted' : available ? 'Permission not enabled' : 'Available in the installed app'}</strong><small>{available ? 'This device supports local notifications.' : 'Open the installed app to change device permission.'}</small></div></div>
       {available && permission !== 'granted' && <button className="button secondary full" onClick={() => setShowExplanation(true)}>Enable OS notifications</button>}
-      {available && permission === 'granted' && <button className="button secondary full" onClick={sendPreview} disabled={working}>{working ? 'Scheduling…' : 'Send real notification preview'}</button>}
+      {available && permission === 'granted' && <button className="button secondary full" onClick={sendPreview} disabled={working}>{working ? 'Scheduling…' : 'Send notification preview'}</button>}
       {!available && <button className="button secondary full" disabled>Install the app to enable</button>}
       {status && <p className="inline-feedback" role="status">{status}</p>}
     </section>
