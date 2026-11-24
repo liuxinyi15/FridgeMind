@@ -10,19 +10,19 @@ export function TodayPage() {
   const spinach = data.inventory.find((item) => item.id === 'food-spinach');
   const intervention = data.interventions.find((item) => item.id === 'intervention-spinach');
   return (
-    <div className="page-stack">
+    <div className="page-stack today-page">
       <section className="welcome-block">
-        <span className="kicker">Good evening, {data.profile.name}</span>
-        <h1>What should I cook?</h1>
-        <p>Options based on what is available, what needs attention, and the time each meal takes.</p>
+        <span className="overline">Good evening, {data.profile.name}</span>
+        <h1>Dinner, sorted.</h1>
+        <p>Here’s the easiest win from your fridge.</p>
       </section>
-      <section aria-labelledby="suggestions-heading">
-        <div className="section-heading"><div><span className="kicker">For your next meal</span><h2 id="suggestions-heading">A few practical options</h2></div><span className="small-note">Ranked for {data.profile.routine.typicalServings} servings</span></div>
-        <div className="recipe-list">{recommendations.slice(0, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div>
+      <section aria-labelledby="suggestions-heading" className="today-recommendations">
+        <h2 id="suggestions-heading" className="sr-only">Your next meal</h2>
+        {recommendations[0] && <RecipeCard recommendation={recommendations[0]} featured />}
+        {recommendations.length > 1 && <div className="more-ideas"><div className="section-heading"><h2>More easy ideas</h2><span>{data.profile.routine.typicalServings} portions</span></div><div className="recipe-list horizontal">{recommendations.slice(1, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div></div>}
       </section>
       {spinach && intervention && <UseSoonCard food={spinach} intervention={intervention} />}
       {data.profile.notifications.habitSuggestions && data.habits[0] && <HabitInsight habit={data.habits[0]} />}
-      <aside className="evidence-banner"><strong>Research boundary</strong><p>Recommendations are evidence-informed prototype hypotheses. Survey summaries combine people living alone and people not currently living alone.</p></aside>
     </div>
   );
 }

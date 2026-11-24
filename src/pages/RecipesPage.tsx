@@ -1,16 +1,32 @@
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { rankRecipes } from '../domain/recommendationEngine';
 import { useAppState } from '../state/AppState';
-import { StatusChip } from '../components/StatusChip';
+import { RecipeCard } from '../components/RecipeCard';
+import { Icon } from '../components/Icon';
+
+type RecipeFilter = 'all' | 'quick' | 'use_soon' | 'saved';
 
 export function RecipesPage() {
-  const { data } = useAppState(); const [params] = useSearchParams();
-  const filter = params.get('uses');
+  const { data } = useAppState();
+  const [params] = useSearchParams();
+  const ingredient = params.get('uses');
+  const [filter, setFilter] = useState<RecipeFilter>(ingredient ? 'use_soon' : 'all');
   const ranked = rankRecipes(data.recipes, data.inventory, data.profile.routine.typicalServings, data.savedRecipes);
-  const filtered = filter ? ranked.filter((item) => item.recipe.ingredients.some((ingredient) => ingredient.canonicalName === filter)) : ranked;
-  return <div className="page-stack"><section className="page-title-row"><div><span className="kicker">Plans that connect to stock</span><h1>Recipes</h1><p>Saved, imported and recommended options use the same live fridge match.</p></div><Link className="button primary" to="/recipes/import">Import recipe</Link></section>
-    {filter && <div className="filter-banner"><span>Showing recipes using <strong>{filter}</strong></span><Link to="/recipes">Clear filter</Link></div>}
-    {['saved', 'imported', 'recommended'].map((source) => { const recipes = filtered.filter((entry) => entry.recipe.source === source); if (!recipes.length) return null; return <section key={source}><div className="section-heading"><h2>{source[0].toUpperCase() + source.slice(1)}</h2><span className="small-note">{recipes.length} {recipes.length === 1 ? 'recipe' : 'recipes'}</span></div><div className="compact-recipe-list">{recipes.map((entry) => <article className="compact-recipe" key={entry.recipe.id}><div><span className="kicker">{entry.recipe.minutes} min · {entry.recipe.baseServings} servings</span><h3><Link to={`/recipes/${entry.recipe.id}`}>{entry.recipe.name}</Link></h3><p>{entry.recipe.tags.join(' · ')}</p></div><div className="recipe-match-side"><StatusChip tone={entry.pantryCoverage >= 0.75 ? 'good' : 'neutral'}>{Math.round(entry.pantryCoverage * 100)}% available</StatusChip><span>{entry.missingIngredientCount} gaps</span></div></article>)}</div></section>; })}
-    {!filtered.length && <section className="empty-state"><h2>No good match right now</h2><p>We could not find a useful option for this filter. Correct your fridge or import a recipe rather than forcing a poor recommendation.</p></section>}
+  const filtered = ranked.filter((entry) => {
+    if (ingredient && !entry.recipe.ingredients.some((item) => item.canonicalName === ingredient)) return false;
+    if (filter === 'quick') return entry.recipe.minutes <= 20;
+    if (filter === 'use_soon') return entry.useSoonCoverage > 0;
+    if (filter === 'saved') return entry.recipe.source === 'saved';
+    return true;
+  });
+
+  return <div className="page-stack recipes-page">
+    <section className="page-title-row"><div><span className="overline">Made for your fridge</span><h1>Recipes</h1><p>{ingredient ? `Ideas using ${ingredient}` : 'Good food, fewer extra groceries.'}</p></div><Link className="icon-action" to="/recipes/import" aria-label="Import recipe"><Icon name="plus" /></Link></section>
+    <div className="filter-chips recipe-filters" role="group" aria-label="Filter recipes">{([
+      ['all', 'All'], ['quick', 'Under 20 min'], ['use_soon', 'Uses food soon'], ['saved', 'Saved'],
+    ] as const).map(([value, label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div>
+    {ingredient && <div className="filter-banner"><span><Icon name="leaf" size={18} /> Showing meals with <strong>{ingredient}</strong></span><Link to="/recipes">Clear</Link></div>}
+    {filtered.length ? <section aria-label="Recipe results"><div className="recipe-list recipe-grid">{filtered.map((entry) => <RecipeCard key={entry.recipe.id} recommendation={entry} />)}</div></section> : <section className="empty-state"><Icon name="recipes" size={32} /><h2>No matches yet</h2><p>Try another filter or check what’s in your fridge.</p><button className="button secondary" onClick={() => setFilter('all')}>Show all recipes</button></section>}
   </div>;
 }

@@ -79,6 +79,12 @@ export interface Recipe {
   steps: string[];
   tags: string[];
   source: 'saved' | 'imported' | 'recommended';
+  /** Existing image already stored with the recipe. */
+  image?: string;
+  /** Image explicitly supplied while importing or creating the recipe. */
+  importedImage?: string;
+  /** Provenance-checked asset bundled for a seeded recipe. */
+  builtInImage?: string;
 }
 
 export interface SavedRecipe {

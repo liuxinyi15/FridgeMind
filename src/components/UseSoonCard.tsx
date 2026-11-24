@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import type { FoodItem, Intervention } from '../domain/types';
 import { useAppState } from '../state/AppState';
 import { StatusChip } from './StatusChip';
+import { FoodIcon } from './FoodIcon';
+import { Icon } from './Icon';
 
 export function UseSoonCard({ food, intervention }: { food: FoodItem; intervention: Intervention }) {
   const { actions } = useAppState();
@@ -11,21 +13,16 @@ export function UseSoonCard({ food, intervention }: { food: FoodItem; interventi
   if (intervention.dismissedAt) return <div className="quiet-card"><strong>Reminder dismissed</strong><p>{food.name} is still visible in My Fridge. It will not interrupt you again now.</p></div>;
   return (
     <article className="use-soon-card" aria-labelledby={`use-soon-${food.id}`}>
-      <div className="section-heading compact"><div><span className="kicker">A small nudge</span><h2 id={`use-soon-${food.id}`}>{intervention.title}</h2></div><StatusChip tone="warn">Use soon</StatusChip></div>
-      <p>{intervention.message}</p>
-      <p className="safety-note"><span aria-hidden="true">ⓘ</span> {batch.dateType === 'unknown' ? 'Date or storage is uncertain. Check the product label or storage guidance before using.' : `${batch.dateType === 'use_by' ? 'Use-by' : 'Best-before'}: ${batch.relevantDate}. Check the label and storage guidance before using.`}</p>
-      <div className="action-grid">
-        <Link className="button primary" to="/recipes?uses=spinach">Cook something</Link>
-        <button className="button secondary" onClick={() => setMessage('Plan noted: freeze or store it after checking suitable storage guidance.')}>Freeze / store</button>
-        <button className="button secondary" onClick={() => setMessage('Added as an in-app plan for your next meal.')}>Plan for later</button>
-        <button className="button ghost" onClick={() => actions.respondToIntervention(intervention.id, 'dismissed')}>Dismiss</button>
+      <div className="rescue-visual"><FoodIcon name={food.canonicalName} large /></div>
+      <div className="rescue-content"><div className="rescue-heading"><span className="overline">Food rescue</span><StatusChip tone="warn">Tomorrow</StatusChip></div>
+      <h2 id={`use-soon-${food.id}`}>Use your {food.name.toLowerCase()} by tomorrow</h2>
+      <p>{batch.physicalStock ?? 'Some'}{batch.physicalStock !== null ? batch.unit : ''} left · opened pack</p>
+      <div className="button-row rescue-actions">
+        <Link className="button primary" to={`/recipes?uses=${food.canonicalName}`}>Find a recipe</Link>
+        <button className="button secondary icon-leading" onClick={() => setMessage('Good plan. Check the pack first, then freeze it if suitable.')}><Icon name="snowflake" size={18} /> Freeze it</button>
       </div>
       {message && <p className="inline-feedback" role="status">{message}</p>}
-      <details className="explanation"><summary>Why am I seeing this?</summary><ul>{intervention.explanation.map((reason) => <li key={reason}>{reason}</li>)}</ul></details>
-      <div className="text-actions">
-        <button onClick={() => actions.respondToIntervention(intervention.id, 'snoozed')}>Snooze 1 day</button>
-        <Link to={`/fridge/${food.id}`}>Correct information</Link>
-        <Link to="/settings">Reminder settings</Link>
+      <details className="explanation"><summary>More options</summary><p className="safety-note">{batch.dateType === 'unknown' ? 'Check the product label and storage guidance before using.' : `${batch.dateType === 'use_by' ? 'Use-by' : 'Best-before'} ${batch.relevantDate}. Always check the label and storage guidance.`}</p><ul>{intervention.explanation.map((reason) => <li key={reason}>{reason}</li>)}</ul><div className="text-actions"><button onClick={() => actions.respondToIntervention(intervention.id, 'snoozed')}>Snooze one day</button><Link to={`/fridge/${food.id}`}>Correct details</Link><button onClick={() => actions.respondToIntervention(intervention.id, 'dismissed')}>Dismiss</button><Link to="/settings">Reminder settings</Link></div></details>
       </div>
     </article>
   );

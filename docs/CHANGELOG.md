@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased — Consumer Mobile Redesign — 2026-11-23
+
+### Added
+
+- Fresh, warm design tokens, reusable SVG icons and deterministic ingredient artwork.
+- Search and working state filters for My Fridge, need-based filters for Recipes, compact portion controls and rewarding shopping states.
+- Mobile evidence set in `docs/evidence/redesign` covering onboarding through settings.
+
+### Changed
+
+- Reframed Today around one prominent next-meal recommendation, concise availability language and a compact Food Rescue nudge.
+- Reworked onboarding, Add Food, recipe detail, cooking, shopping and settings around short copy and progressive disclosure.
+- Moved research, native capability and privacy detail away from daily-use surfaces while keeping their controls accessible.
+- Updated the four-tab shell, safe-area behavior and route scroll restoration for one-handed use.
+- Added a non-generative recipe-artwork hierarchy: stored image, imported image, curated built-in asset, then branded ingredient placeholder. Broken sources advance automatically without blocking recipe flows.
+
+### Preserved
+
+- Inventory uncertainty, recipe ranking, serving scaling, shopping-gap provenance, cooking deductions, intervention feedback, habits, persistence, repository abstraction and Capacitor bridges.
+
+### Verification
+
+- Production build, 16 unit/component/domain tests and the end-to-end core journey pass.
+- Mobile overflow checks pass at 320px, 375px and 390px.
+
 ## v0.1.1 — Native Mobile Prototype — 2026-11-23
 
 ### Added

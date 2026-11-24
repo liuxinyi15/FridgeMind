@@ -7,12 +7,11 @@ export function HabitInsight({ habit }: { habit: HabitInference }) {
   if (habit.status === 'confirmed') return <div className="quiet-card success"><strong>Change confirmed</strong><p>Weekday lunch suggestions will be reduced. You can change this later.</p></div>;
   return (
     <article className="habit-card">
-      <span className="kicker">A pattern to review</span>
-      <h2>Weekday lunches may be different</h2>
-      <p>{habit.evidence}</p>
-      <div className="proposal"><strong>Proposed change</strong><p>{habit.proposedChange}</p></div>
-      <details className="explanation"><summary>How was this inferred?</summary><p>This is seeded demo evidence, not a proven habit. FridgeMind never silently applies it.</p></details>
-      <div className="button-row">
+      <span className="overline">A helpful pattern?</span>
+      <h2>Skip weekday lunch suggestions?</h2>
+      <p>It looks like you usually eat lunch away from home.</p>
+      <details className="explanation"><summary>What we noticed</summary><p>{habit.evidence}</p><p>{habit.proposedChange}</p></details>
+      <div className="button-row habit-actions">
         <button className="button primary" onClick={() => actions.respondToHabit(habit.id, 'confirm')}>Confirm</button>
         <button className="button secondary" onClick={() => actions.respondToHabit(habit.id, 'not_now')}>Not now</button>
         <button className="button ghost" onClick={() => actions.respondToHabit(habit.id, 'disable')}>Don’t use this pattern</button>

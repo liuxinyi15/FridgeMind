@@ -54,6 +54,9 @@ importers:
       '@playwright/test':
         specifier: latest
         version: 1.65.1
+      '@rolldown/binding-wasm32-wasi':
+        specifier: 1.2.19
+        version: 1.2.19
       '@testing-library/jest-dom':
         specifier: latest
         version: 8.0.0(@testing-library/dom@10.4.2)(vitest@5.1.1(@types/node@26.6.6)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6)))
@@ -1373,17 +1376,14 @@ snapshots:
     dependencies:
       '@emnapi/wasi-threads': 2.2.0
       tslib: 2.9.1
-    optional: true
 
   '@emnapi/runtime@2.0.0-beta.2':
     dependencies:
       tslib: 2.9.1
-    optional: true
 
   '@emnapi/wasi-threads@2.2.0':
     dependencies:
       tslib: 2.9.1
-    optional: true
 
   '@exodus/bytes@1.16.0': {}
 
@@ -1483,7 +1483,6 @@ snapshots:
       '@emnapi/core': 2.0.0-beta.2
       '@emnapi/runtime': 2.0.0-beta.2
       '@tybys/wasm-util': 0.10.5
-    optional: true
 
   '@oxc-project/types@0.156.0': {}
 
@@ -1535,7 +1534,6 @@ snapshots:
       '@emnapi/core': 2.0.0-beta.2
       '@emnapi/runtime': 2.0.0-beta.2
       '@napi-rs/wasm-runtime': 1.2.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)
-    optional: true
 
   '@rolldown/binding-win32-arm64-msvc@1.2.19':
     optional: true
@@ -1585,7 +1583,6 @@ snapshots:
   '@tybys/wasm-util@0.10.5':
     dependencies:
       tslib: 2.9.1
-    optional: true
 
   '@types/aria-query@5.0.4': {}
 

@@ -1,6 +1,6 @@
-# FridgeMind V0.1.1 — Native Mobile Prototype
+# FridgeMind — Consumer Mobile Companion
 
-FridgeMind is an installable mobile HCI functional demo exploring how adults living alone might connect food already at home, recipes, real routines and future shopping decisions with less management effort and more control.
+FridgeMind is an installable food-first companion for people living alone. It helps turn food already at home into an easy next meal, keeps shopping gaps clear and makes use-soon food easier to rescue.
 
 **Primary product:** Capacitor-packaged iOS and Android app.  
 **Secondary distribution:** shareable web research/backup build from the same React codebase.
@@ -15,9 +15,11 @@ The available survey summary includes 52 people living alone and 63 people not c
 
 ## Main features
 
-- “What should I cook?” ranking with visible deterministic reasons.
+- A visual, action-first Today recommendation with deterministic reasons on demand.
+- Non-generative recipe artwork with stored/imported/curated image fallbacks and a branded ingredient placeholder that always renders.
 - Batch/confidence-aware fridge and demo-photo/manual input.
-- Editable text recipe import, 1–4 serving scaling and live inventory matching.
+- Searchable fridge inventory and need-based recipe filters.
+- Editable text recipe import, live portion scaling and grouped inventory matching.
 - Explained shopping gaps and lightweight cooking completion.
 - Use-soon sensing-to-intervention loop with why, snooze, dismiss, correct and disable controls.
 - Confirm-first habit insight and five-scenario Research Mode.
@@ -25,6 +27,7 @@ The available survey summary includes 52 people living alone and 63 people not c
 - Native camera/library access with a pre-permission explanation and manual fallback.
 - Notification delivery adapters separating proactive decisions from in-app or native local delivery.
 - Safe-area, keyboard and Android hardware-back behaviour.
+- A compact four-tab shell and verified layouts at 320px, 375px and 390px.
 
 ## Run
 

@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Unit } from '../domain/types';
 import { foodCamera, type CameraPurpose } from '../platform/camera/CameraAdapter';
-import { getRuntimePlatform } from '../platform/runtime';
 import { useAppState } from '../state/AppState';
+import { Icon } from '../components/Icon';
 
 export function AddFoodPage() {
   const { actions } = useAppState();
@@ -20,7 +20,6 @@ export function AddFoodPage() {
   const [date, setDate] = useState('');
   const [storage, setStorage] = useState<'fridge' | 'freezer' | 'cupboard'>('fridge');
   const [note, setNote] = useState('');
-  const platform = getRuntimePlatform();
 
   const save = (demo = false) => {
     actions.addFood({ name, quantity: quantity === '' ? null : Number(quantity), unit, relevantDate: date || undefined, dateType: date ? 'best_before' : 'unknown', storage, note }, demo);
@@ -64,33 +63,33 @@ export function AddFoodPage() {
   };
 
   return <div className="page-stack narrow-page add-food-page">
-    <section><span className="kicker">Add food</span><h1>What are you putting away?</h1><p>Choose the quickest route. Review is always required before anything is saved.</p></section>
+    <section className="add-food-intro"><span className="overline">Add food</span><h1>What are you putting away?</h1><p>Choose a quick way to start.</p></section>
 
-    {mode === 'choices' && <section className="mobile-action-list" aria-label="Add food options">
-      <button onClick={() => setPermissionPurpose('camera')}><span className="action-icon" aria-hidden="true">◉</span><span><strong>Take a photo</strong><small>Use your {platform === 'web' ? 'device image picker' : 'camera'} and review the suggestion.</small></span></button>
-      <button onClick={() => setPermissionPurpose('library')}><span className="action-icon" aria-hidden="true">▧</span><span><strong>Choose from library</strong><small>Select an existing food or package photo.</small></span></button>
-      <button onClick={() => setMode('manual')}><span className="action-icon" aria-hidden="true">＋</span><span><strong>Add manually</strong><small>Reliable fallback — no camera permission needed.</small></span></button>
+    {mode === 'choices' && <section className="mobile-action-list method-sheet" aria-label="Add food options">
+      <div className="sheet-handle" aria-hidden="true" /><h2>Add from</h2>
+      <button onClick={() => setPermissionPurpose('camera')}><span className="action-icon" aria-hidden="true"><Icon name="camera" /></span><span><strong>Camera</strong><small>Take a photo, then add the details.</small></span><Icon name="chevron" size={18} /></button>
+      <button onClick={() => setPermissionPurpose('library')}><span className="action-icon" aria-hidden="true"><Icon name="gallery" /></span><span><strong>Photo library</strong><small>Choose a photo to keep with your entry.</small></span><Icon name="chevron" size={18} /></button>
+      <button onClick={() => setMode('manual')}><span className="action-icon" aria-hidden="true"><Icon name="edit" /></span><span><strong>Enter manually</strong><small>Fast and no photo needed.</small></span><Icon name="chevron" size={18} /></button>
     </section>}
 
     {(mode === 'manual' || mode === 'review') && <section className="form-card">
-      {mode === 'review' && <div className="recognition-review">{preview && <img src={preview} alt="Selected food for review" />}<div className="demo-notice"><strong>Demo recognition — please review before saving.</strong><p>The image was captured natively, but food recognition remains a deterministic prototype suggestion.</p></div></div>}
+      {mode === 'review' && <div className="recognition-review">{preview && <img src={preview} alt="Selected food for review" />}<div className="demo-notice"><strong>Photo added for reference</strong><p>Automatic food recognition is not available yet. Check the starter details below.</p></div></div>}
       <FoodForm name={name} setName={setName} quantity={quantity} setQuantity={setQuantity} unit={unit} setUnit={setUnit} date={date} setDate={setDate} storage={storage} setStorage={setStorage} note={note} setNote={setNote} />
       <div className="button-row mobile-form-actions"><button className="button secondary" onClick={() => setMode('choices')}>Choose another method</button><button className="button primary" onClick={() => save(mode === 'review')} disabled={!name.trim()}>Save to My Fridge</button></div>
     </section>}
 
     {status && <p className="inline-feedback permission-denied" role="status">{status}</p>}
-    <details className="concept-card"><summary>Receipt scan concept</summary><p>Receipt scanning remains a future concept; no production OCR is claimed in V0.1.1.</p></details>
+    <details className="concept-card"><summary>Photo privacy</summary><p>In this local prototype, your selected photo stays on this device and is only used while you review this entry. Manual entry is always available.</p></details>
 
     <input ref={fileInput} className="sr-only" type="file" accept="image/*" onChange={(event) => handleWebFile(event.target.files?.[0])} aria-label="Choose food photo from device" />
 
     {permissionPurpose && <div className="sheet-backdrop" role="presentation" onClick={() => setPermissionPurpose(null)}>
       <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="camera-permission-title" onClick={(event) => event.stopPropagation()}>
         <div className="sheet-handle" aria-hidden="true" />
-        <span className="kicker">Before we open your {permissionPurpose === 'camera' ? 'camera' : 'library'}</span>
-        <h2 id="camera-permission-title">You stay in control</h2>
-        <p>FridgeMind uses the selected image only to prepare an editable demo suggestion on this device. Manual entry always remains available.</p>
-        <ul className="permission-list"><li>No production recognition claim</li><li>No participant image is uploaded by this local-first prototype</li><li>You can deny permission and continue manually</li></ul>
-        <div className="sheet-actions"><button className="button secondary" onClick={() => { setPermissionPurpose(null); setMode('manual'); }}>Use manual entry</button><button className="button primary" onClick={continueImageFlow} disabled={working}>{working ? 'Opening…' : `Continue to ${permissionPurpose === 'camera' ? 'camera' : 'library'}`}</button></div>
+        <span className="overline">Photo access</span>
+        <h2 id="camera-permission-title">Open your {permissionPurpose === 'camera' ? 'camera' : 'photo library'}?</h2>
+        <p>Your photo stays on this device in the prototype. You’ll review everything before saving.</p>
+        <div className="sheet-actions"><button className="button secondary" onClick={() => { setPermissionPurpose(null); setMode('manual'); }}>Enter manually</button><button className="button primary" onClick={continueImageFlow} disabled={working}>{working ? 'Opening…' : 'Continue'}</button></div>
       </section>
     </div>}
   </div>;

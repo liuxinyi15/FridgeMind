@@ -26,15 +26,16 @@
     "@capacitor/keyboard": "latest",
     "@capacitor/local-notifications": "latest",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
+    "react-router-dom": "latest",
+    "typescript": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
     "@capacitor/cli": "latest",
     "@playwright/test": "latest",
+    "@rolldown/binding-wasm32-wasi": "1.2.19",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@testing-library/user-event": "latest",
