@@ -7,11 +7,13 @@ import { saveAppData } from '../data/repositories';
 import { AppStateProvider } from '../state/AppState';
 import { AddFoodPage } from './AddFoodPage';
 import { RecipeImportPage } from './RecipeImportPage';
-import { recogniseImageText } from '../platform/ocr/browserOcr';
+import { recogniseImageText, recogniseRecipeDocument } from '../platform/ocr/browserOcr';
 
-vi.mock('../platform/ocr/browserOcr', () => ({ recogniseImageText: vi.fn() }));
+vi.mock('../platform/ocr/browserOcr', () => ({ recogniseImageText: vi.fn(), recogniseRecipeDocument: vi.fn() }));
 const recognise = vi.mocked(recogniseImageText);
+const recogniseRecipe = vi.mocked(recogniseRecipeDocument);
 const image = new File(['image'], 'scan.png', { type: 'image/png' });
+const recipeResult = (text: string, quality: 'good' | 'review_needed' | 'poor' = 'good') => ({ rawText: text, text, meanConfidence: quality === 'poor' ? 20 : 88, lines: [], qualityScore: quality === 'poor' ? 12 : 84, quality, pass: 'primary' as const, psm: '3', discardedLines: [] });
 
 function renderRoute(path: string, element: React.ReactNode) {
   return render(<MemoryRouter initialEntries={[path]}><AppStateProvider><Routes><Route path={path.split('?')[0]} element={element} /></Routes></AppStateProvider></MemoryRouter>);
@@ -20,16 +22,18 @@ function renderRoute(path: string, element: React.ReactNode) {
 beforeEach(() => {
   const data = createConsumerData(); data.profile.onboardingComplete = true; saveAppData(data);
   recognise.mockReset();
+  recogniseRecipe.mockReset();
   vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: vi.fn() });
 });
 
 describe('browser OCR integration boundary', () => {
   it('passes recipe OCR text into parseRecipeText and preserves the raw result', async () => {
-    recognise.mockResolvedValue('Spinach pasta\nServes 2\n20 minutes\nIngredients\n180g pasta\n150g spinach\nMethod\n1. Cook and combine.');
+    recogniseRecipe.mockResolvedValue(recipeResult('Spinach pasta\nServes 2\n20 minutes\nIngredients\n180g pasta\n150g spinach\nMethod\n1. Cook and combine.'));
     renderRoute('/recipes/import', <RecipeImportPage />);
     await userEvent.upload(screen.getByLabelText('Choose recipe image'), image);
     await screen.findByRole('heading', { name: 'Review what we found' });
     expect(screen.getByLabelText('Recipe name')).toHaveValue('Spinach pasta');
+    expect(screen.queryByText('OCR diagnostics')).not.toBeInTheDocument();
     await userEvent.click(screen.getByText('Original text'));
     expect(screen.getByText(/150g spinach/)).toBeVisible();
   });
@@ -52,14 +56,14 @@ describe('browser OCR integration boundary', () => {
   });
 
   it('shows honest fallback when OCR returns empty', async () => {
-    recognise.mockResolvedValue('');
+    recogniseRecipe.mockResolvedValue(recipeResult('', 'poor'));
     renderRoute('/recipes/import', <RecipeImportPage />);
     await userEvent.upload(screen.getByLabelText('Choose recipe image'), image);
-    expect(await screen.findByRole('heading', { name: /couldn’t read enough text/i })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible();
   });
 
   it('never substitutes a consumer image with the deterministic recipe fixture', async () => {
-    recognise.mockResolvedValue('Tomato toast\nIngredients\n2 tomatoes\n2 bread slices\nMethod\n1. Toast and serve.');
+    recogniseRecipe.mockResolvedValue(recipeResult('Tomato toast\nIngredients\n2 tomatoes\n2 bread slices\nMethod\n1. Toast and serve.'));
     renderRoute('/recipes/import', <RecipeImportPage />);
     await userEvent.upload(screen.getByLabelText('Choose recipe image'), image);
     await waitFor(() => expect(screen.getByLabelText('Recipe name')).toHaveValue('Tomato toast'));
@@ -71,6 +75,15 @@ describe('browser OCR integration boundary', () => {
     render(<MemoryRouter initialEntries={['/recipes/import?fixture=image']}><AppStateProvider><Routes><Route path="/recipes/import" element={<RecipeImportPage />} /></Routes></AppStateProvider></MemoryRouter>);
     expect(await screen.findByText(/simulated recognition fixture/i)).toBeVisible();
     expect(screen.getByLabelText('Recipe name')).toHaveValue('Mushroom Pasta');
-    expect(recognise).not.toHaveBeenCalled();
+    expect(recogniseRecipe).not.toHaveBeenCalled();
+  });
+
+  it('fails safely instead of rendering structured garbage', async () => {
+    recogniseRecipe.mockResolvedValue({ ...recipeResult('ANC AK\n:\\\nRE CIPI\n+ ec\n---\n|', 'poor'), discardedLines: [':\\', 'RE CIPI', '+ ec', '---', '|'] });
+    renderRoute('/recipes/import', <RecipeImportPage />);
+    await userEvent.upload(screen.getByLabelText('Choose recipe image'), image);
+    expect(await screen.findByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible();
+    expect(screen.queryByLabelText('Recipe name')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review extracted text' })).toBeVisible();
   });
 });

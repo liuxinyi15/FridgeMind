@@ -1,10 +1,11 @@
 import { canonicalise } from './inventory';
 import type { QuantityMode, Recipe, RecipeIngredient, StorageLocation, Unit } from './types';
+import { cleanOcrRecipeText, isIngredientHeading, isMethodHeading, isPlausibleRecipePhrase, isPlausibleRecipeTitle, isRecipeMetadataLine, looksLikeIngredientLine } from './recipeOcr';
 
 const unitAliases: Record<string, { unit: Unit; multiplier?: number }> = {
   g: { unit: 'g' }, gram: { unit: 'g' }, grams: { unit: 'g' }, kg: { unit: 'g', multiplier: 1000 },
   ml: { unit: 'ml' }, millilitre: { unit: 'ml' }, millilitres: { unit: 'ml' }, l: { unit: 'ml', multiplier: 1000 }, litre: { unit: 'ml', multiplier: 1000 }, litres: { unit: 'ml', multiplier: 1000 },
-  tbsp: { unit: 'tbsp' }, tablespoon: { unit: 'tbsp' }, tablespoons: { unit: 'tbsp' },
+  tbsp: { unit: 'tbsp' }, tbs: { unit: 'tbsp' }, tablespoon: { unit: 'tbsp' }, tablespoons: { unit: 'tbsp' },
   tsp: { unit: 'tsp' }, teaspoon: { unit: 'tsp' }, teaspoons: { unit: 'tsp' },
   cup: { unit: 'cup' }, cups: { unit: 'cup' },
   item: { unit: 'item' }, items: { unit: 'item' }, clove: { unit: 'item' }, cloves: { unit: 'item' },
@@ -12,13 +13,15 @@ const unitAliases: Record<string, { unit: Unit; multiplier?: number }> = {
   pack: { unit: 'item' }, packs: { unit: 'item' }, slice: { unit: 'item' }, slices: { unit: 'item' },
 };
 
-const ingredientHeading = /^(ingredients?|what you(?:'|’)ll need)\s*:?$/i;
-const methodHeading = /^(method|instructions?|directions?|preparation|steps?|how to make it)\s*:?$/i;
 const sectionHeading = /^(for the .+|to serve|optional|garnish)\s*:?$/i;
-const metadataLine = /^(serves?|servings?|yield|makes?|ready in|prep(?:aration)? time|cook(?:ing)? time|total time)\b/i;
 
 function cleanLine(line: string) {
   return line.trim().replace(/^[•·▪◦*–—-]\s*/, '').replace(/^\[[ x]\]\s*/i, '').trim();
+}
+
+function normaliseFractions(value: string) {
+  const fractions: Record<string, string> = { '½': '1/2', '¼': '1/4', '¾': '3/4', '⅓': '1/3', '⅔': '2/3', '⅛': '1/8', '⅜': '3/8', '⅝': '5/8', '⅞': '7/8' };
+  return value.replace(/(\d)\s*([½¼¾⅓⅔⅛⅜⅝⅞])/g, (_, whole: string, fraction: string) => `${whole} ${fractions[fraction]}`).replace(/[½¼¾⅓⅔⅛⅜⅝⅞]/g, (fraction) => fractions[fraction]);
 }
 
 function parseNumber(raw: string) {
@@ -33,29 +36,31 @@ function parseNumber(raw: string) {
 }
 
 function parseIngredient(line: string, index: number): RecipeIngredient | null {
-  const cleaned = cleanLine(line).replace(/\s+/g, ' ');
-  if (!cleaned || ingredientHeading.test(cleaned) || methodHeading.test(cleaned) || sectionHeading.test(cleaned) || metadataLine.test(cleaned)) return null;
-  const match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞])\s*([a-zA-Z]+)?\.?\s+(.+)$/);
+  const cleaned = normaliseFractions(cleanLine(line)).replace(/\s+/g, ' ');
+  if (!cleaned || isIngredientHeading(cleaned) || isMethodHeading(cleaned) || sectionHeading.test(cleaned) || isRecipeMetadataLine(cleaned) || !looksLikeIngredientLine(cleaned)) return null;
+  const match = cleaned.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:[.,]\d+)?)\s*(.*)$/);
   let quantity = 1;
   let unit: Unit = 'item';
   let name = cleaned;
   if (match) {
     quantity = parseNumber(match[1]);
-    const unitInfo = match[2] ? unitAliases[match[2].toLowerCase()] : undefined;
+    const remainder = match[2].trim();
+    const measured = remainder.match(/^([a-zA-Z]+)\.?\s+(.+)$/);
+    const unitInfo = measured ? unitAliases[measured[1].toLowerCase()] : undefined;
     if (unitInfo) {
       unit = unitInfo.unit;
       quantity *= unitInfo.multiplier ?? 1;
-      name = match[3];
+      name = measured![2];
     } else {
-      name = [match[2], match[3]].filter(Boolean).join(' ');
+      name = remainder;
     }
   }
   name = name
     .replace(/^of\s+/i, '')
     .replace(/^(small|medium|large)\s+/i, '')
-    .replace(/,\s*(?:roughly\s+)?(?:chopped|sliced|diced|minced|drained|to serve|plus more.*)$/i, '')
+    .replace(/,\s*(?:roughly\s+)?(?:chopped|sliced|diced|minced|drained|melted|to serve|plus more.*)$/i, '')
     .trim();
-  if (!name || /^\d+$/.test(name)) return null;
+  if (!name || /^\d+$/.test(name) || !isPlausibleRecipePhrase(name)) return null;
   return { id: `imported-ingredient-${index}`, name, canonicalName: canonicalise(name), quantity, unit };
 }
 
@@ -71,24 +76,29 @@ function timeInMinutes(lines: string[]) {
 }
 
 export function parseRecipeText(text: string): Recipe {
-  const lines = text.split(/\r?\n/).map(cleanLine).filter(Boolean);
-  const titleIndex = lines.findIndex((line) => !ingredientHeading.test(line) && !methodHeading.test(line) && !metadataLine.test(line));
-  const name = (lines[titleIndex] ?? 'Imported recipe').replace(/^#+\s*/, '').replace(/\s+/g, ' ');
+  const lines = cleanOcrRecipeText(text).lines.map(cleanLine).filter(Boolean);
+  const ingredientStartIndex = lines.findIndex(isIngredientHeading);
+  const titleCandidates = lines.slice(0, ingredientStartIndex >= 0 ? ingredientStartIndex : Math.min(lines.length, 5));
+  const titleIndex = lines.findIndex((line) => titleCandidates.includes(line) && isPlausibleRecipeTitle(line));
+  const name = titleIndex >= 0 ? lines[titleIndex].replace(/^#+\s*/, '').replace(/\s+/g, ' ') : 'Imported recipe';
   const servingLine = lines.find((line) => /\b(serves?|servings?|yield|makes?)\b/i.test(line));
   const baseServings = Math.max(1, Number(servingLine?.match(/\d+/)?.[0]) || 2);
   const minutes = timeInMinutes(lines);
-  const ingredientStart = lines.findIndex((line) => ingredientHeading.test(line));
-  const methodStart = lines.findIndex((line) => methodHeading.test(line));
+  const ingredientStart = lines.findIndex(isIngredientHeading);
+  const methodStart = lines.findIndex(isMethodHeading);
   const numberedStepIndexes = lines.map((line, index) => /^\d+[.)]\s+/.test(line) ? index : -1).filter((index) => index >= 0);
   const inferredMethodStart = methodStart >= 0 ? methodStart : numberedStepIndexes[0] ?? -1;
-  const start = ingredientStart >= 0 ? ingredientStart + 1 : titleIndex + 1;
+  const start = ingredientStart >= 0 ? ingredientStart + 1 : Math.max(0, titleIndex + 1);
   const end = inferredMethodStart >= 0 ? inferredMethodStart : lines.length;
-  const ingredientLines = lines.slice(start, end).filter((line) => line !== servingLine && !metadataLine.test(line) && !sectionHeading.test(line) && !/\b(?:minutes?|mins?|hours?|hrs?)\b/i.test(line));
+  const ingredientLines = lines.slice(start, end).filter((line) => line !== servingLine && !isRecipeMetadataLine(line) && !sectionHeading.test(line) && !/\b(?:minutes?|mins?|hours?|hrs?)\b/i.test(line));
   const ingredients = ingredientLines.map(parseIngredient).filter((item): item is RecipeIngredient => Boolean(item));
-  const steps = (inferredMethodStart >= 0 ? lines.slice(inferredMethodStart + (methodStart >= 0 ? 1 : 0)) : [])
+  const methodLines = inferredMethodStart >= 0 ? lines.slice(inferredMethodStart + (methodStart >= 0 ? 1 : 0)) : [];
+  const hasNumberedSteps = methodLines.some((line) => /^\d+[.)]\s+/.test(line));
+  const steps = methodLines
     .filter((line) => !sectionHeading.test(line))
+    .filter((line) => !hasNumberedSteps || /^\d+[.)]\s+/.test(line))
     .map((line) => line.replace(/^\d+[.)]\s*/, '').trim())
-    .filter(Boolean);
+    .filter((line) => isPlausibleRecipePhrase(line));
   return {
     id: `imported-${Date.now()}`, name, baseServings, ingredients, minutes, steps,
     tags: ['Imported'], source: 'imported', ownership: 'personal', originalText: text, createdAt: new Date().toISOString(),

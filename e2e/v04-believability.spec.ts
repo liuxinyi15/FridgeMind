@@ -30,7 +30,7 @@ test('new consumer starts empty and arbitrary images never fabricate content', a
 
   await page.goto('/recipes/import');
   await page.getByLabel('Choose recipe image').setInputFiles({ ...imageFile, name: 'recipe-anything.jpg' });
-  await expect(page.getByRole('heading', { name: /couldn’t read enough text/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible();
   await expect(page.getByText('Mushroom Pasta')).toHaveCount(0);
 });
 

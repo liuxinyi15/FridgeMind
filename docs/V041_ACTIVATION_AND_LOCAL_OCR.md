@@ -7,6 +7,10 @@
 - Processing: Tesseract runs in a browser worker. Selected image pixels are not sent to a FridgeMind backend or third-party vision API. Tesseract worker/language assets may be downloaded by the library when first used.
 - Persistence: temporary scan object URLs are revoked. Receipt and package images are not persisted. A recipe image is resized to at most 1280 px and JPEG-compressed before local persistence only when the user keeps it as a cover.
 - Failure: empty or structurally unusable OCR output opens an honest fallback with another image, text paste, and manual entry options. Consumer uploads never use deterministic fixture output.
+- Recipe preprocessing: source orientation is respected, small images are upscaled toward 1800 px with high-quality Canvas resizing, and temporary colour, contrast-enhanced greyscale, and Otsu-threshold variants are prepared. These variants are never stored as the recipe cover.
+- Recipe recognition: one Tesseract worker runs the primary `PSM.AUTO` pass first with inter-word spacing preserved. `PSM.SINGLE_BLOCK` contrast and `PSM.SPARSE_TEXT` threshold passes run sequentially only when the preceding result is not good. Word boxes split large column gaps and restore a lightweight document reading order.
+- Quality gate: deterministic structure, ingredient-line, title, step, symbol-noise, and mean-confidence signals produce `good`, `review_needed`, or `poor`. Poor output never populates structured fields. Readable weak output can be corrected through Review extracted text and parsed again.
+- Research evidence: researcher mode can inspect the selected pass, PSM, mean confidence, quality score, discarded lines, and raw text. Usability events record only quality/pass/score metadata, never image pixels or recipe contents.
 
 ## Reliable scope
 

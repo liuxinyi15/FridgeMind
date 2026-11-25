@@ -135,6 +135,7 @@ test('participant screens have no horizontal overflow at study phone widths', as
     await page.getByLabel('Choose recipe image').setInputFiles(recipeStudyImage);
     await expect(page.getByRole('heading', { name: 'Reading recipe…', level: 2 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Review what we found' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('OCR diagnostics')).toHaveCount(0);
     await expectNoOverflow();
     await page.getByRole('button', { name: 'Save recipe' }).click();
     await expect(page.getByText('Your recipe')).toBeVisible();

@@ -53,7 +53,7 @@ test('recipe image and text imports save editable personal recipes into normal m
   await completeOnboarding(page);
   await page.goto('/recipes/import');
   await page.getByLabel('Choose recipe image').setInputFiles({ ...imageFile, name: 'recipe-screenshot.jpg' });
-  await expect(page.getByRole('heading', { name: /couldn’t read enough text/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible();
   await expect(page.getByText('Mushroom Pasta')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create manually' }).click();
   await page.getByLabel('Recipe name').fill('Photo recipe');

@@ -19,6 +19,22 @@ test('study recipe image runs through real browser OCR into editable personal re
   await expect(page.getByText('Task complete')).toHaveCount(0);
   await expect(page.getByLabel('Recipe name')).toHaveValue(/Creamy Spinach Pasta/i);
   await expect(page.getByText('Original text')).toBeVisible();
+  const ingredients = await page.locator('.ingredient-edit').evaluateAll((rows) => rows.map((row) => ({
+    name: (row.querySelector('input[aria-label*=name]') as HTMLInputElement).value,
+    quantity: (row.querySelector('input[type=number]') as HTMLInputElement).value,
+    unit: (row.querySelector('select') as HTMLSelectElement).value,
+  })));
+  expect(ingredients).toEqual([
+    { name: 'pasta', quantity: '180', unit: 'g' },
+    { name: 'spinach', quantity: '150', unit: 'g' },
+    { name: 'cream', quantity: '120', unit: 'ml' },
+    { name: 'onion', quantity: '1', unit: 'item' },
+    { name: 'garlic', quantity: '2', unit: 'item' },
+  ]);
+  await expect(page.getByLabel('Servings')).toHaveValue('2');
+  await expect(page.getByLabel('Preparation time')).toHaveValue('20');
+  await expect(page.getByLabel('Instructions')).toHaveValue('Cook the pasta until tender.\nFry the onion and garlic.\nAdd spinach and cream.\nCombine with pasta and serve.');
+  await expect(page.locator('.recipe-review')).not.toContainText(/ANC AK|RE CIPI|\+ ec|:\\/i);
   await page.getByLabel('Recipe name').fill('Creamy Spinach Pasta favourite');
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page.getByRole('heading', { name: 'Creamy Spinach Pasta favourite' })).toBeVisible();
