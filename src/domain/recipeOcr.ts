@@ -19,6 +19,17 @@ export interface OcrDocumentResult {
   pass: RecipeOcrPass;
   psm: string;
   discardedLines: string[];
+  runtime?: {
+    inputWidth: number;
+    inputHeight: number;
+    scaledWidth: number;
+    scaledHeight: number;
+    maxTilePixels: number;
+    tiled: boolean;
+    tileCount: number;
+    preprocessingMs: number;
+    recognitionMs: number;
+  };
 }
 
 const fractionCharacters = '¼½¾⅓⅔⅛⅜⅝⅞';

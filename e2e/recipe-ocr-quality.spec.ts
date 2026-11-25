@@ -52,3 +52,79 @@ test('recipe OCR handles varied document layouts and fails safely without recipe
   await expect(page.getByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByLabel('Recipe name')).toHaveCount(0);
 });
+
+test('a realistic 1080 × 5000 recipe screenshot stays rendered and resolves safely', async ({ page }) => {
+  test.setTimeout(180_000);
+  const pageErrors: Error[] = [];
+  const consoleErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error));
+  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
+  const tallRecipe = await rasterRecipe(page, 'tall-weeknight-recipe', 1080, 5000, `
+    <g font-family="Arial" fill="#18342c">
+      <text x="64" y="110" font-size="58" font-weight="700">Roasted Tomato Orzo</text>
+      <text x="64" y="178" font-size="30">Serves 4</text>
+      <text x="64" y="228" font-size="30">Ready in 35 minutes</text>
+      <rect x="55" y="310" width="970" height="1120" rx="42" fill="#f3d3a7"/>
+      <ellipse cx="540" cy="850" rx="330" ry="260" fill="#fff7e9"/>
+      <circle cx="420" cy="790" r="105" fill="#d95f4f"/><circle cx="610" cy="910" r="125" fill="#d95f4f"/>
+      <path d="M360 720c80-120 270-130 360 5" fill="none" stroke="#638b58" stroke-width="42"/>
+      <text x="64" y="1580" font-size="45" font-weight="700">Ingredients</text>
+      <text x="64" y="1660" font-size="34">300 g orzo</text>
+      <text x="64" y="1735" font-size="34">500 g cherry tomatoes</text>
+      <text x="64" y="1810" font-size="34">2 tablespoons olive oil</text>
+      <text x="64" y="1885" font-size="34">1 onion</text>
+      <text x="64" y="1960" font-size="34">3 cloves garlic</text>
+      <text x="64" y="2035" font-size="34">750 ml vegetable stock</text>
+      <text x="64" y="2110" font-size="34">100 g spinach</text>
+      <text x="64" y="2185" font-size="34">50 g parmesan</text>
+      <rect x="55" y="2320" width="970" height="620" rx="42" fill="#e4eee0"/>
+      <path d="M240 2750c180-310 400-310 610 0" fill="#7aa16b"/>
+      <circle cx="420" cy="2580" r="115" fill="#e36b58"/><circle cx="650" cy="2610" r="135" fill="#e36b58"/>
+      <text x="64" y="3180" font-size="45" font-weight="700">Method</text>
+      <text x="64" y="3265" font-size="32">1. Roast the tomatoes with olive oil.</text>
+      <text x="64" y="3340" font-size="32">2. Soften the onion and garlic.</text>
+      <text x="64" y="3415" font-size="32">3. Stir in the orzo and vegetable stock.</text>
+      <text x="64" y="3490" font-size="32">4. Simmer until the orzo is tender.</text>
+      <text x="64" y="3565" font-size="32">5. Fold through spinach and parmesan.</text>
+      <rect x="55" y="3770" width="970" height="760" rx="42" fill="#f6eee0"/>
+      <text x="105" y="3960" font-size="39" font-weight="700">Weeknight tip</text>
+      <text x="105" y="4040" font-size="31">Keep a splash of stock for reheating.</text>
+      <text x="105" y="4120" font-size="31">Finish with lemon and black pepper.</text>
+      <path d="M170 4330h730" stroke="#c8a978" stroke-width="12"/>
+    </g>`);
+
+  await page.goto('/settings/research/usability');
+  await page.getByRole('button', { name: 'Start new session' }).click();
+  const task = page.getByRole('article').filter({ hasText: 'Personal recipe import' });
+  await task.getByRole('button', { name: 'Launch task' }).click();
+  await page.getByLabel('Choose recipe image').setInputFiles(tallRecipe);
+  await expect(page.locator('.processing-card').getByRole('heading', { name: /Preparing image|Reading recipe|Checking text/ })).toBeVisible();
+  await expect(page.locator('.app-header').getByText('FridgeMind')).toBeVisible();
+  await expect(page.locator('body')).not.toBeEmpty();
+  await expect(page).toHaveURL(/\/recipes\/import/);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('region', { name: 'Recipe import options' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: /Usability Test/i })).toBeVisible();
+  await page.goForward();
+  await expect(page.getByRole('region', { name: 'Recipe import options' })).toBeVisible();
+  await page.getByLabel('Choose recipe image').setInputFiles(tallRecipe);
+
+  await expect(page.getByRole('heading', { name: /Review what we found|couldn’t read this recipe clearly enough/i })).toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('.app-header').getByText('FridgeMind')).toBeVisible();
+  const runtime = await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('fridgemind:v0.1:data')!);
+    return data.usabilityEvents?.findLast?.((event: { type: string }) => event.type === 'ocr_completed')?.metadata
+      ?? data.usabilitySessions.flatMap((session: { events: Array<{ type: string; metadata?: object }> }) => session.events).findLast((event: { type: string }) => event.type === 'ocr_completed')?.metadata;
+  });
+  expect(runtime).toMatchObject({ inputWidth: 1080, inputHeight: 5000, scaledWidth: 1080, scaledHeight: 5000, tiled: true, tileCount: 2 });
+  expect(runtime.maxTilePixels).toBeLessThanOrEqual(5_500_000);
+  expect(runtime.preprocessingMs).toBeGreaterThanOrEqual(0);
+  expect(runtime.recognitionMs).toBeGreaterThan(0);
+  console.log(`[ocr-runtime] ${JSON.stringify(runtime)}`);
+  expect(pageErrors).toEqual([]);
+  expect(consoleErrors).toEqual([]);
+});

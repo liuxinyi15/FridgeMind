@@ -1,5 +1,5 @@
 import { scoreRecipeDocument, type OcrDocumentResult, type OcrLine, type RecipeOcrPass } from '../../domain/recipeOcr';
-import { prepareOcrImages } from './prepareOcrImage';
+import { loadOcrSource, OcrProcessingError, prepareOcrVariant, yieldToBrowser, type OcrImageVariant } from './prepareOcrImage';
 
 export interface OcrProgress {
   status: string;
@@ -34,7 +34,7 @@ export async function recogniseImageText(image: File | Blob | string, options: O
   }
 }
 
-function structuredLines(blocks: Tesseract.Block[] | null, pageWidth: number): OcrLine[] {
+function structuredLines(blocks: Tesseract.Block[] | null, pageWidth: number, yOffset = 0): OcrLine[] {
   return (blocks ?? []).flatMap((block) => block.paragraphs.flatMap((paragraph) => paragraph.lines.flatMap((line) => {
     const words = [...line.words].sort((a, b) => a.bbox.x0 - b.bbox.x0);
     const groups: Tesseract.Word[][] = [];
@@ -47,9 +47,20 @@ function structuredLines(blocks: Tesseract.Block[] | null, pageWidth: number): O
     return groups.map((group) => ({
       text: group.map((word) => word.text).join(' ').trim(),
       confidence: group.reduce((sum, word) => sum + word.confidence, 0) / group.length,
-      bbox: { x0: Math.min(...group.map((word) => word.bbox.x0)), y0: Math.min(...group.map((word) => word.bbox.y0)), x1: Math.max(...group.map((word) => word.bbox.x1)), y1: Math.max(...group.map((word) => word.bbox.y1)) },
+      bbox: { x0: Math.min(...group.map((word) => word.bbox.x0)), y0: Math.min(...group.map((word) => word.bbox.y0)) + yOffset, x1: Math.max(...group.map((word) => word.bbox.x1)), y1: Math.max(...group.map((word) => word.bbox.y1)) + yOffset },
     }));
   }))).filter((line) => line.text);
+}
+
+function mergeTileText(texts: string[]) {
+  const merged: string[] = [];
+  for (const text of texts) {
+    for (const line of text.split('\n').map((value) => value.trim()).filter(Boolean)) {
+      if (merged.slice(-10).includes(line)) continue;
+      merged.push(line);
+    }
+  }
+  return merged.join('\n');
 }
 
 function textInDocumentOrder(lines: OcrLine[], pageWidth: number, fallback: string) {
@@ -69,50 +80,108 @@ function textInDocumentOrder(lines: OcrLine[], pageWidth: number, fallback: stri
 
 /** Recipe-document OCR with temporary preprocessing and evidence-based fallback passes. */
 export async function recogniseRecipeDocument(image: File | Blob | string, options: OcrOptions = {}): Promise<OcrDocumentResult> {
-  const [{ createWorker, PSM }, prepared] = await Promise.all([import('tesseract.js'), prepareOcrImages(image)]);
-  if (options.signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError');
-  let passOffset = 0;
-  let passWeight = .5;
-  const worker = await createWorker('eng', undefined, {
-    logger: (message) => options.onProgress?.({ status: message.status, progress: Math.min(.98, passOffset + message.progress * passWeight) }),
-  });
+  options.onProgress?.({ status: 'preparing_image', progress: .01 });
+  if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+  const loadStartedAt = performance.now();
+  const source = await loadOcrSource(image);
+  let preprocessingMs = performance.now() - loadStartedAt;
+  let tesseract: typeof import('tesseract.js');
+  try { tesseract = await import('tesseract.js'); } catch (error) {
+    source.close(); throw new OcrProcessingError('worker_failed', undefined, { cause: error });
+  }
+  const { createWorker, PSM } = tesseract;
+  options.onProgress?.({ status: 'preparing_image', progress: .05 });
+  if (options.signal?.aborted) { source.close(); throw new OcrProcessingError('cancelled'); }
+  let progressBase = .05;
+  let progressWeight = .03;
+  let progressStatus = 'reading_recipe';
+  let worker: Awaited<ReturnType<typeof createWorker>>;
+  try {
+    worker = await createWorker('eng', undefined, {
+      logger: (message) => options.onProgress?.({ status: progressStatus, progress: Math.min(.96, progressBase + message.progress * progressWeight) }),
+    });
+  } catch (error) {
+    source.close(); throw new OcrProcessingError('worker_failed', undefined, { cause: error });
+  }
   const abort = () => { void worker.terminate(); };
   options.signal?.addEventListener('abort', abort, { once: true });
   const attempts: OcrDocumentResult[] = [];
-  const configurations: Array<{ pass: RecipeOcrPass; psm: Tesseract.PSM; offset: number; weight: number }> = [
-    { pass: 'primary', psm: PSM.AUTO, offset: 0, weight: .5 },
-    { pass: 'contrast', psm: PSM.SINGLE_BLOCK, offset: .5, weight: .25 },
-    { pass: 'threshold', psm: PSM.SPARSE_TEXT, offset: .75, weight: .25 },
+  const configurations: Array<{ pass: RecipeOcrPass; variant: OcrImageVariant; psm: Tesseract.PSM; start: number; end: number }> = [
+    { pass: 'primary', variant: 'primary', psm: PSM.AUTO, start: .08, end: .62 },
+    { pass: 'contrast', variant: 'contrast', psm: PSM.SINGLE_BLOCK, start: .62, end: .81 },
+    { pass: 'threshold', variant: 'threshold', psm: PSM.SPARSE_TEXT, start: .81, end: .96 },
   ];
+  let recognitionMs = 0;
   try {
-    for (let index = 0; index < configurations.length; index += 1) {
-      if (options.signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError');
-      const configuration = configurations[index];
-      passOffset = configuration.offset; passWeight = configuration.weight;
+    for (const configuration of configurations) {
+      if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+      progressStatus = configuration.pass === 'primary' ? 'reading_recipe' : 'checking_text';
+      options.onProgress?.({ status: progressStatus, progress: configuration.start });
+      await yieldToBrowser();
       await worker.setParameters({ tessedit_pageseg_mode: configuration.psm, preserve_interword_spaces: '1', user_defined_dpi: '300' });
-      const result = await worker.recognize(prepared[index].canvas, {}, { text: true, blocks: true });
-      const lines = structuredLines(result.data.blocks, prepared[index].width);
-      const rawText = textInDocumentOrder(lines, prepared[index].width, result.data.text);
-      const scored = scoreRecipeDocument(rawText, result.data.confidence);
+      const tileTexts: string[] = [];
+      const lines: OcrLine[] = [];
+      const confidences: number[] = [];
+      for (const tile of source.tiles) {
+        if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+        await yieldToBrowser();
+        const prepStart = performance.now();
+        const prepared = prepareOcrVariant(source, configuration.variant, tile);
+        preprocessingMs += performance.now() - prepStart;
+        const passSpan = configuration.end - configuration.start;
+        progressBase = configuration.start + passSpan * tile.index / source.tiles.length;
+        progressWeight = passSpan / source.tiles.length;
+        try {
+          const recognitionStart = performance.now();
+          const result = await worker.recognize(prepared.canvas, {}, { text: true, blocks: true });
+          recognitionMs += performance.now() - recognitionStart;
+          const tileLines = structuredLines(result.data.blocks, prepared.width, prepared.scaledTop);
+          lines.push(...tileLines); confidences.push(result.data.confidence);
+          tileTexts.push(textInDocumentOrder(tileLines, prepared.width, result.data.text));
+        } catch (error) {
+          if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+          throw new OcrProcessingError('recognition_failed', undefined, { cause: error });
+        } finally {
+          prepared.release();
+        }
+      }
+      const rawText = mergeTileText(tileTexts);
+      const meanConfidence = confidences.length ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length : 0;
+      const scored = scoreRecipeDocument(rawText, meanConfidence);
       attempts.push({
         rawText,
         text: scored.text,
-        meanConfidence: result.data.confidence,
+        meanConfidence,
         lines,
         qualityScore: scored.qualityScore,
         quality: scored.quality,
         pass: configuration.pass,
         psm: configuration.psm,
         discardedLines: scored.discardedLines,
+        runtime: {
+          inputWidth: source.plan.inputWidth,
+          inputHeight: source.plan.inputHeight,
+          scaledWidth: source.plan.scaledWidth,
+          scaledHeight: source.plan.scaledHeight,
+          maxTilePixels: source.plan.maxTilePixels,
+          tiled: source.plan.tiled,
+          tileCount: source.plan.tileCount,
+          preprocessingMs: Math.round(preprocessingMs),
+          recognitionMs: Math.round(recognitionMs),
+        },
       });
       if (scored.quality === 'good') break;
     }
-    if (options.signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError');
-    options.onProgress?.({ status: 'complete', progress: 1 });
+    if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+    options.onProgress?.({ status: 'checking_text', progress: .98 });
     return attempts.sort((a, b) => b.qualityScore - a.qualityScore || (b.meanConfidence ?? 0) - (a.meanConfidence ?? 0))[0];
+  } catch (error) {
+    if (error instanceof OcrProcessingError) throw error;
+    if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+    throw new OcrProcessingError('recognition_failed', undefined, { cause: error });
   } finally {
     options.signal?.removeEventListener('abort', abort);
-    prepared.forEach((candidate) => { candidate.canvas.width = 0; candidate.canvas.height = 0; });
+    source.close();
     await worker.terminate().catch(() => undefined);
   }
 }

@@ -8,6 +8,7 @@ import { AppStateProvider } from '../state/AppState';
 import { AddFoodPage } from './AddFoodPage';
 import { RecipeImportPage } from './RecipeImportPage';
 import { recogniseImageText, recogniseRecipeDocument } from '../platform/ocr/browserOcr';
+import { OcrProcessingError } from '../platform/ocr/prepareOcrImage';
 
 vi.mock('../platform/ocr/browserOcr', () => ({ recogniseImageText: vi.fn(), recogniseRecipeDocument: vi.fn() }));
 const recognise = vi.mocked(recogniseImageText);
@@ -60,6 +61,16 @@ describe('browser OCR integration boundary', () => {
     renderRoute('/recipes/import', <RecipeImportPage />);
     await userEvent.upload(screen.getByLabelText('Choose recipe image'), image);
     expect(await screen.findByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible();
+  });
+
+  it('keeps a visible recovery page when preprocessing fails', async () => {
+    recogniseRecipe.mockRejectedValue(new OcrProcessingError('preprocessing_failed'));
+    renderRoute('/recipes/import', <RecipeImportPage />);
+    await userEvent.upload(screen.getByLabelText('Choose recipe image'), image);
+    expect(await screen.findByRole('heading', { name: /couldn’t read this recipe clearly enough/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Try another image' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Paste recipe text' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create manually' })).toBeVisible();
   });
 
   it('never substitutes a consumer image with the deterministic recipe fixture', async () => {

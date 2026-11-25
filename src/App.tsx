@@ -16,6 +16,7 @@ import { ResearchModePage } from './pages/ResearchModePage';
 import { UsabilityTestPage } from './pages/UsabilityTestPage';
 import { ParticipantStudyPage } from './pages/ParticipantStudyPage';
 import { isParticipantStudy } from './domain/usability';
+import { RecipeImportErrorBoundary } from './components/RecipeImportErrorBoundary';
 
 export function App() {
   const { data } = useAppState();
@@ -31,7 +32,7 @@ export function App() {
         <Route path="fridge/add" element={<AddFoodPage />} />
         <Route path="fridge/:foodId" element={<FoodDetailPage />} />
         <Route path="recipes" element={<RecipesPage />} />
-        <Route path="recipes/import" element={<RecipeImportPage />} />
+        <Route path="recipes/import" element={<RecipeImportErrorBoundary resetKey={location.key}><RecipeImportPage /></RecipeImportErrorBoundary>} />
         <Route path="recipes/:recipeId" element={<RecipeDetailPage />} />
         <Route path="recipes/:recipeId/cook" element={<CookingPage />} />
         <Route path="shopping" element={<ShoppingPage />} />
