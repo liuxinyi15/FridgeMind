@@ -13,6 +13,14 @@ async function launchTask(page: import('@playwright/test').Page, title: string) 
   await launch.click({ force: true });
 }
 
+async function latestRun(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('fridgemind:v0.1:data')!);
+    const session = data.usabilitySessions.find((item: { id: string }) => item.id === data.currentUsabilitySessionId);
+    return { run: session.taskRuns.at(-1), events: session.events };
+  });
+}
+
 test('researcher can run, measure and export local usability tasks', async ({ page }) => {
   await completeOnboarding(page);
   await page.goto('/settings/research/usability');
@@ -98,4 +106,54 @@ test('task fixtures 2, 4, 5 and 6 reach their distinct success conditions', asyn
   await expect(page.getByRole('row', { name: /4 Yes/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /5 Yes/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /6 Yes/ })).toBeVisible();
+});
+
+test('Task 4 automatic evidence requires a genuinely READY recipe', async ({ page }) => {
+  await completeOnboarding(page);
+  await page.goto('/settings/research/usability');
+  await page.getByRole('button', { name: 'Start new session' }).click();
+
+  await launchTask(page, 'No-shopping decision');
+  await page.goto('/recipes/recipe-chicken-stir-fry');
+  await expect(page.getByText('Task complete')).toHaveCount(0);
+  const missing = await latestRun(page);
+  expect(missing.run.automaticSuccessAt).toBeUndefined();
+  expect(missing.events.at(-1)).toMatchObject({ type: 'recipe_opened', metadata: { recipeId: 'recipe-chicken-stir-fry', availability: 'MISSING_ITEMS' } });
+  await page.getByRole('button', { name: 'I’m finished' }).click();
+
+  await launchTask(page, 'No-shopping decision');
+  await page.getByRole('link', { name: 'Mushroom Pasta' }).first().click();
+  await expect(page.getByText('Task complete')).toBeVisible();
+  const ready = await latestRun(page);
+  expect(ready.run.automaticSuccessAt).toBeTruthy();
+  expect(ready.events.at(-2)).toMatchObject({ type: 'recipe_opened', metadata: { recipeId: 'recipe-mushroom-pasta', availability: 'READY' } });
+});
+
+test('Task 5 evidence requires an attention recipe or direct attention handling', async ({ page }) => {
+  await completeOnboarding(page);
+  await page.goto('/settings/research/usability');
+  await page.getByRole('button', { name: 'Start new session' }).click();
+
+  await launchTask(page, 'Food attention');
+  await page.goto('/recipes/recipe-tomato-pasta');
+  await expect(page.getByText('Task complete')).toHaveCount(0);
+  const unrelated = await latestRun(page);
+  expect(unrelated.run.automaticSuccessAt).toBeUndefined();
+  expect(unrelated.events.at(-1)).toMatchObject({ type: 'recipe_opened', metadata: { recipeId: 'recipe-tomato-pasta', usesAttentionFood: false } });
+  await page.getByRole('button', { name: 'I want to stop' }).click();
+
+  await launchTask(page, 'Food attention');
+  await page.goto('/recipes/recipe-spinach-pasta');
+  await expect(page.getByText('Task complete')).toBeVisible();
+  const relevant = await latestRun(page);
+  expect(relevant.run.automaticSuccessAt).toBeTruthy();
+  expect(relevant.events.at(-2)).toMatchObject({ type: 'recipe_opened', metadata: { recipeId: 'recipe-spinach-pasta', usesAttentionFood: true } });
+
+  await launchTask(page, 'Food attention');
+  await page.getByRole('article', { name: 'Make a plan for your spinach' }).getByRole('button', { name: 'I used it' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'I used it' }).click();
+  await expect(page.getByText('Task complete')).toBeVisible();
+  const handled = await latestRun(page);
+  expect(handled.run.automaticSuccessAt).toBeTruthy();
+  expect(handled.events.at(-2)).toMatchObject({ type: 'food_attention_handled', metadata: { outcome: 'used' } });
 });

@@ -15,10 +15,12 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ResearchModePage } from './pages/ResearchModePage';
 import { UsabilityTestPage } from './pages/UsabilityTestPage';
 import { ParticipantStudyPage } from './pages/ParticipantStudyPage';
+import { isParticipantStudy } from './domain/usability';
 
 export function App() {
   const { data } = useAppState();
   const location = useLocation();
+  const participantStudy = isParticipantStudy(data);
   if (location.pathname === '/test') return <Routes><Route path="test" element={<ParticipantStudyPage />} /></Routes>;
   if (!data.profile.onboardingComplete) return <Routes><Route path="*" element={<OnboardingPage />} /></Routes>;
   return (
@@ -34,8 +36,8 @@ export function App() {
         <Route path="recipes/:recipeId/cook" element={<CookingPage />} />
         <Route path="shopping" element={<ShoppingPage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="settings/research" element={<ResearchModePage />} />
-        <Route path="settings/research/usability" element={<UsabilityTestPage />} />
+        <Route path="settings/research" element={participantStudy ? <Navigate to="/" replace /> : <ResearchModePage />} />
+        <Route path="settings/research/usability" element={participantStudy ? <Navigate to="/" replace /> : <UsabilityTestPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

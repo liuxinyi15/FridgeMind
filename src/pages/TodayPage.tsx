@@ -6,6 +6,7 @@ import { useAppState } from '../state/AppState';
 import { RecipeCard } from '../components/RecipeCard';
 import { UseSoonCard } from '../components/UseSoonCard';
 import { Icon } from '../components/Icon';
+import { showsResearchUi } from '../domain/usability';
 
 const todayKey = (now = new Date()) => [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
 
@@ -46,7 +47,7 @@ export function TodayPage() {
       {!awayActive && leftovers.length > 0 && <section aria-labelledby="sorted-title"><div className="section-heading"><div><span className="overline">Already sorted</span><h2 id="sorted-title">Tomorrow’s lunch is already ready</h2></div></div>{leftovers.map((leftover) => <article className="leftover-hero" key={leftover.id}><div className="leftover-icon"><Icon name="servings" size={26} /></div><div><h3>{leftover.name}</h3><p>{leftover.portions} {leftover.portions === 1 ? 'portion' : 'portions'} left · {storedLabel(leftover.cookedAt, productNow)}</p></div><button className="button secondary" onClick={() => actions.consumeLeftover(leftover.id)}>Eat 1 portion</button></article>)}</section>}
 
       {!awayActive && context !== 'eating_out' && readyNow.length > 0 && <section className="today-recommendations" aria-labelledby="no-shop-title"><div className="section-heading"><div><span className="overline">Cook without shopping</span><h2 id="no-shop-title">{readyNow.length} {readyNow.length === 1 ? 'dinner' : 'dinners'} you can make without shopping</h2></div><Link className="text-button" to="/recipes">See recipes</Link></div><div className="recipe-list recipe-grid today-ready-grid">{readyNow.slice(0, 3).map((recommendation, index) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} featured={index === 0 && attention.length === 0 && leftovers.length === 0} />)}</div></section>}
-      {data.experienceMode === 'research' && recommendations.some((entry) => entry.availability !== 'READY') && <section aria-label="Research fixture recipe options"><div className="section-heading"><div><span className="overline">Research fixture</span><h2>Other meal options</h2></div></div><div className="recipe-list recipe-grid">{recommendations.filter((entry) => entry.availability !== 'READY').slice(0, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div></section>}
+      {showsResearchUi(data) && recommendations.some((entry) => entry.availability !== 'READY') && <section aria-label="Research fixture recipe options"><div className="section-heading"><div><span className="overline">Research fixture</span><h2>Other meal options</h2></div></div><div className="recipe-list recipe-grid">{recommendations.filter((entry) => entry.availability !== 'READY').slice(0, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div></section>}
     </>}
   </div>;
 }

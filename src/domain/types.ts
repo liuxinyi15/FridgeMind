@@ -186,7 +186,7 @@ export type UsabilityEventType =
   | 'page_visited' | 'primary_cta_clicked' | 'secondary_cta_clicked' | 'back_navigation'
   | 'more_opened' | 'recommendation_explanation_opened' | 'explanatory_disclosure_opened'
   | 'recipe_opened' | 'meal_context_changed'
-  | 'uncertainty_prompt_shown' | 'uncertainty_resolved' | 'food_corrected'
+  | 'uncertainty_prompt_shown' | 'uncertainty_resolved' | 'food_corrected' | 'food_attention_handled'
   | 'shopping_item_added' | 'duplicate_shopping_attempt'
   | 'shopping_item_reconciled' | 'duplicate_fridge_attempt'
   | 'cooking_started' | 'recipe_correction_opened' | 'cooking_completed'

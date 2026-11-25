@@ -16,6 +16,13 @@ test('participant query ID runs all seven tasks and exports one local session', 
 
   for (let task = 1; task <= 7; task += 1) {
     await expect(page.getByText(`Task ${task} of 7`).first()).toBeVisible();
+    if (task === 3) {
+      await expect(page.getByRole('heading', { name: 'Personal recipe import' })).toBeVisible();
+      await expect(page.getByRole('img', { name: 'Test recipe screenshot' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Open image' })).toHaveAttribute('href', /\/study\/recipe-screenshot\.png$/);
+      await expect(page.getByRole('link', { name: 'Download image' })).toHaveAttribute('download', '');
+      await expect(page.getByText(/upload|OCR|scan this/i)).toHaveCount(0);
+    }
     await page.getByRole('button', { name: 'Begin task' }).click();
     await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
     if (task === 1) {
@@ -30,6 +37,16 @@ test('participant query ID runs all seven tasks and exports one local session', 
       await page.getByRole('button', { name: 'Review foods' }).click();
       await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
       await expect(page.getByText('Task complete')).toHaveCount(0);
+    }
+    if (task === 3) {
+      await expect(page).toHaveURL(/\/recipes\/import$/);
+      await expect(page.getByText(/simulated recognition|Research Mode|fixture/i)).toHaveCount(0);
+    }
+    if (task === 4) {
+      await expect(page.locator('body')).not.toContainText(/Research fixture|Research Mode|simulated recognition|fixture/i);
+      await page.goto('/settings/research/usability');
+      await expect(page).toHaveURL(/\/$/);
+      await expect(page.getByText(/Success:|Researcher observation|task metrics/i)).toHaveCount(0);
     }
     await page.getByRole('button', { name: 'I’m finished' }).click();
     await expect(page.getByRole('heading', { name: 'Quick task feedback' })).toBeVisible();
@@ -67,6 +84,9 @@ test('manual ID and abandonment progress without exposing researcher UI', async 
   await expect(page.getByText('Research Mode')).toHaveCount(0);
   await page.goto('/settings');
   await expect(page.getByRole('link', { name: /research|usability/i })).toHaveCount(0);
+  await page.goto('/settings/research/usability');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByText(/Research Mode|Success:|Researcher observation/i)).toHaveCount(0);
 });
 
 test('participant screens have no horizontal overflow at study phone widths', async ({ page }) => {
@@ -90,6 +110,58 @@ test('participant screens have no horizontal overflow at study phone widths', as
     await page.getByRole('button', { name: 'I’m finished' }).click();
     await expect(page.getByRole('heading', { name: 'Quick task feedback' })).toBeVisible();
     await expectNoOverflow();
-    await page.evaluate(() => localStorage.clear());
+    await answerRatings(page);
+    await page.getByRole('button', { name: 'Begin task' }).click();
+    await page.getByRole('button', { name: 'I’m finished' }).click();
+    await answerRatings(page);
+    await expect(page.getByRole('heading', { name: 'Personal recipe import' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Test recipe screenshot' })).toBeVisible();
+    const imagePopupPromise = page.waitForEvent('popup');
+    await page.getByRole('link', { name: 'Open image' }).click();
+    const imagePopup = await imagePopupPromise;
+    await expect(imagePopup).toHaveURL(/\/study\/recipe-screenshot\.png$/);
+    await imagePopup.close();
+    const imageDownloadPromise = page.waitForEvent('download');
+    await page.getByRole('link', { name: 'Download image' }).click();
+    expect((await imageDownloadPromise).suggestedFilename()).toBe('recipe-screenshot.png');
+    await expectNoOverflow();
+    await page.getByRole('button', { name: 'Begin task' }).click();
+    await expect(page).toHaveURL(/\/recipes\/import$/);
+    await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
+    await expectNoOverflow();
+    await page.getByRole('button', { name: 'I’m finished' }).click();
+    await expectNoOverflow();
+    await answerRatings(page);
+
+    for (const task of [4, 5]) {
+      await expect(page.getByText(`Task ${task} of 7`).first()).toBeVisible();
+      await page.getByRole('button', { name: 'Begin task' }).click();
+      await expect(page).toHaveURL(/\/$/);
+      await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
+      await expect(page.locator('body')).not.toContainText(/Research fixture|Research Mode|simulated recognition|fixture/i);
+      await expectNoOverflow();
+      await page.getByRole('button', { name: 'I’m finished' }).click();
+      await expectNoOverflow();
+      await answerRatings(page);
+    }
+
+    for (const task of [6, 7]) {
+      await expect(page.getByText(`Task ${task} of 7`).first()).toBeVisible();
+      await page.getByRole('button', { name: 'Begin task' }).click();
+      await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
+      await expectNoOverflow();
+      await page.getByRole('button', { name: 'I’m finished' }).click();
+      await expectNoOverflow();
+      await answerRatings(page, task === 7);
+    }
+
+    await expect(page.getByRole('heading', { name: /completed the FridgeMind study/ })).toBeVisible();
+    await expectNoOverflow();
+    const resultsDownloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download study results' }).click();
+    expect((await resultsDownloadPromise).suggestedFilename()).toBe(`FridgeMind_M${width}_results.json`);
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Clear study data' }).click();
+    await expect(page.getByRole('heading', { name: 'FridgeMind usability study' })).toBeVisible();
   }
 });

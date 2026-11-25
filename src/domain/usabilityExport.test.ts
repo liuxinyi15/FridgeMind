@@ -13,7 +13,7 @@ describe('participant usability export', () => {
     data.usabilitySessions = [{
       id: 'session-1', mode: 'participant', participantId: 'P01', startedAt: '2026-11-24T10:00:00Z',
       taskRuns: [{ id: 'run-1', taskId: 'task-1', status: 'completed', startedAt: '2026-11-24T10:01:00Z', completedAt: '2026-11-24T10:02:00Z', automaticSuccessAt: '2026-11-24T10:01:30Z', participantDeclaredAt: '2026-11-24T10:02:00Z', askPostTaskQuestions: true }],
-      events: [], responses: [], observations: [],
+      events: [{ id: 'event-1', taskId: 'task-1', type: 'recipe_opened', at: '2026-11-24T10:01:30Z', metadata: { recipeId: 'recipe-1', availability: 'READY', usesAttentionFood: true } }], responses: [], observations: [],
     }];
     const payload = createUsabilityExportPayload(data.usabilitySessions);
     expect(payload.format).toBe('fridgemind-usability-v1');
@@ -21,5 +21,6 @@ describe('participant usability export', () => {
     expect(payload.sessions).toHaveLength(1);
     expect(payload.sessions[0].participantId).toBe('P01');
     expect(payload.sessions[0].taskRuns[0]).toMatchObject({ automaticSuccess: true, participantDeclaredCompletion: true, metrics: { completion: true } });
+    expect(payload.sessions[0].events[0].metadata).toEqual({ recipeId: 'recipe-1', availability: 'READY', usesAttentionFood: true });
   });
 });

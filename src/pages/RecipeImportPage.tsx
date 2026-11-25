@@ -6,6 +6,7 @@ import type { Recipe, RecipeIngredient, Unit } from '../domain/types';
 import { imageFileToCompressedDataUrl } from '../platform/images/prepareImage';
 import { useAppState } from '../state/AppState';
 import { Icon } from '../components/Icon';
+import { showsResearchUi } from '../domain/usability';
 
 type ImportView = 'choices' | 'text' | 'processing' | 'review' | 'failure';
 const sample = `Creamy mushroom pasta
@@ -52,9 +53,6 @@ export function RecipeImportPage() {
   const abortOcr = useRef<AbortController | undefined>(undefined);
   const ocrDraftEdited = useRef(false);
   const editRecipe = data.recipes.find((recipe) => recipe.id === params.get('edit') && recipe.ownership === 'personal');
-  const session = data.usabilitySessions.find((entry) => entry.id === data.currentUsabilitySessionId);
-  const showStudyAsset = session?.currentTaskId === 'task-3' && [...session.taskRuns].reverse().find((run) => run.taskId === 'task-3')?.status === 'running';
-  const studyAsset = `${import.meta.env.BASE_URL}study/recipe-screenshot.png`;
   const [view, setView] = useState<ImportView>(editRecipe ? 'review' : 'choices');
   const [text, setText] = useState(sample);
   const [draft, setDraft] = useState<Recipe | null>(editRecipe ? structuredClone(editRecipe) : null);
@@ -62,6 +60,7 @@ export function RecipeImportPage() {
   const [imageSource, setImageSource] = useState<File | string | undefined>(editRecipe?.importedImage);
   const [useCover, setUseCover] = useState(Boolean(editRecipe?.importedImage));
   const [progress, setProgress] = useState(0);
+  const researchUi = showsResearchUi(data);
 
   useEffect(() => () => {
     abortOcr.current?.abort();
@@ -69,11 +68,11 @@ export function RecipeImportPage() {
   }, []);
   useEffect(() => {
     const fixture = params.get('fixture');
-    if (data.experienceMode === 'research' && fixture === 'image') { setDraft(imageRecipe()); setView('review'); }
-    if (data.experienceMode === 'research' && fixture === 'text') { setText(sample); setView('text'); }
-  }, [params, data.experienceMode]);
+    if (researchUi && fixture === 'image') { setDraft(imageRecipe()); setView('review'); }
+    if (researchUi && fixture === 'text') { setText(sample); setView('text'); }
+  }, [params, researchUi]);
 
-  const isResearchFixture = data.experienceMode === 'research' && params.get('fixture') === 'image';
+  const isResearchFixture = researchUi && params.get('fixture') === 'image';
   const parse = () => { setDraft({ ...parseRecipeText(text), importedImage: useCover ? imagePreview : undefined }); setView('review'); };
   const runOcr = async (source: File | string, preview: string) => {
     abortOcr.current?.abort(); const controller = new AbortController(); abortOcr.current = controller;
@@ -99,7 +98,6 @@ export function RecipeImportPage() {
     const url = URL.createObjectURL(file); temporaryPreview.current = url;
     void runOcr(file, url);
   };
-  const scanStudyAsset = () => { void runOcr(studyAsset, studyAsset); };
   const startManual = () => { setDraft(blankRecipe()); setView('review'); };
   const fallback = (next: 'text' | 'manual') => { actions.logUsabilityEvent('ocr_fallback_used', { flow: 'recipe', fallback: next }); if (next === 'text') setView('text'); else startManual(); };
   const markOcrCorrection = () => {
@@ -126,7 +124,7 @@ export function RecipeImportPage() {
 
   return <div className="page-stack narrow-page recipe-import-page">
     <section><span className="overline">Personal recipes</span><h1>{editRecipe ? 'Edit recipe' : view === 'review' ? 'Review what we found' : view === 'processing' ? 'Reading recipe…' : 'Add a recipe'}</h1><p>{view === 'review' ? 'Check and correct the details before saving.' : 'Scan a screenshot or photo, paste recipe text, or enter the essentials yourself.'}</p></section>
-    {view === 'choices' && <section className="mobile-action-list method-sheet" aria-label="Recipe import options"><div className="sheet-handle" /><h2>Add a recipe</h2>{showStudyAsset && <div className="study-recipe-asset"><img src={studyAsset} alt="Study recipe screenshot for creamy spinach pasta" /><div><strong>Your study recipe image</strong><small>This is the image provided for the current task.</small><button className="button primary" onClick={scanStudyAsset}>Scan this image</button></div></div>}<button onClick={() => imageInput.current?.click()}><span className="action-icon"><Icon name="gallery" /></span><span><strong>Scan screenshot or photo</strong><small>Read recipe text on this device, then review the result.</small></span><Icon name="chevron" size={18} /></button><button onClick={() => setView('text')}><span className="action-icon"><Icon name="edit" /></span><span><strong>Paste recipe text</strong><small>Flexible formatting is fine.</small></span><Icon name="chevron" size={18} /></button><button onClick={startManual}><span className="action-icon"><Icon name="plus" /></span><span><strong>Create manually</strong><small>Name, servings and ingredients are enough.</small></span><Icon name="chevron" size={18} /></button></section>}
+    {view === 'choices' && <section className="mobile-action-list method-sheet" aria-label="Recipe import options"><div className="sheet-handle" /><h2>Add a recipe</h2><button onClick={() => imageInput.current?.click()}><span className="action-icon"><Icon name="gallery" /></span><span><strong>Scan screenshot or photo</strong><small>Read recipe text on this device, then review the result.</small></span><Icon name="chevron" size={18} /></button><button onClick={() => setView('text')}><span className="action-icon"><Icon name="edit" /></span><span><strong>Paste recipe text</strong><small>Flexible formatting is fine.</small></span><Icon name="chevron" size={18} /></button><button onClick={startManual}><span className="action-icon"><Icon name="plus" /></span><span><strong>Create manually</strong><small>Name, servings and ingredients are enough.</small></span><Icon name="chevron" size={18} /></button></section>}
     {view === 'text' && <section className="form-card"><label>Recipe text<textarea rows={13} value={text} onChange={(event) => setText(event.target.value)} /></label><div className="button-row"><button className="button secondary" onClick={() => setView('choices')}>Back</button><button className="button primary" onClick={parse} disabled={!text.trim()}>Review recipe</button></div><p className="form-hint">We’ll preserve the original text and propose the fields we can identify.</p></section>}
     {view === 'processing' && <section className="processing-card" aria-live="polite"><span className="processing-spinner" aria-hidden="true" /><h2>Reading recipe…</h2><p>{progress ? `${progress}% · ` : ''}Finding recipe text and preparing an editable draft.</p><button className="button secondary" onClick={() => { abortOcr.current?.abort(); setView('choices'); }}>Cancel</button></section>}
     {view === 'failure' && <section className="empty-state"><Icon name="info" size={30} /><h2>We couldn’t read enough text from this image.</h2><p>Try another clear image, paste the recipe text, or create it manually.</p><div className="button-row"><button className="button primary" onClick={() => imageInput.current?.click()}>Try another image</button><button className="button secondary" onClick={() => fallback('text')}>Paste recipe text</button><button className="button ghost" onClick={() => fallback('manual')}>Create manually</button></div></section>}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { UsabilityEvent, UsabilityTaskRun } from './types';
-import { calculateTaskMetrics, taskCompletesFromEvent, usabilityTasks } from './usability';
+import { createSeedData } from '../data/seed';
+import { calculateTaskMetrics, recipeOpenedMetadata, showsResearchUi, studyAssetUrl, taskCompletesFromEvent, usabilityTasks } from './usability';
 
 describe('usability task definitions', () => {
   it('provides all seven deterministic tasks', () => {
@@ -11,10 +12,37 @@ describe('usability task definitions', () => {
     expect(taskCompletesFromEvent('task-1', 'quick_add_parsed')).toBe(true);
     expect(taskCompletesFromEvent('task-2', 'quick_add_parsed')).toBe(true);
     expect(taskCompletesFromEvent('task-3', 'ocr_parse_reviewed')).toBe(true);
-    expect(taskCompletesFromEvent('task-4', 'recipe_opened')).toBe(true);
-    expect(taskCompletesFromEvent('task-5', 'recipe_opened')).toBe(true);
+    expect(taskCompletesFromEvent('task-4', 'recipe_opened', { availability: 'READY' })).toBe(true);
+    expect(taskCompletesFromEvent('task-4', 'recipe_opened', { availability: 'MISSING_ITEMS' })).toBe(false);
+    expect(taskCompletesFromEvent('task-5', 'recipe_opened', { usesAttentionFood: true })).toBe(true);
+    expect(taskCompletesFromEvent('task-5', 'recipe_opened', { usesAttentionFood: false })).toBe(false);
+    expect(taskCompletesFromEvent('task-5', 'food_attention_handled')).toBe(true);
     expect(taskCompletesFromEvent('task-6', 'cooking_completed')).toBe(true);
     expect(taskCompletesFromEvent('task-7', 'leftover_selected')).toBe(true);
+  });
+
+  it('provides Task 3 material through a base-path-safe definition', () => {
+    expect(usabilityTasks[2].studyAsset).toEqual({ type: 'image', path: '/study/recipe-screenshot.png', label: 'Test recipe' });
+    expect(studyAssetUrl(usabilityTasks[2].studyAsset!.path, '/FridgeMind/')).toBe('/FridgeMind/study/recipe-screenshot.png');
+  });
+});
+
+describe('usability evidence metadata', () => {
+  it('derives recipe availability and attention relevance from domain state', () => {
+    const data = createSeedData();
+    const spinach = recipeOpenedMetadata(data, 'recipe-spinach-pasta');
+    const tomato = recipeOpenedMetadata(data, 'recipe-tomato-pasta');
+    expect(spinach).toMatchObject({ availability: 'READY_WITH_UNCERTAINTY', usesAttentionFood: true });
+    expect(tomato.usesAttentionFood).toBe(false);
+  });
+
+  it('hides research UI only for active participant sessions', () => {
+    const data = createSeedData(); data.experienceMode = 'research';
+    data.currentUsabilitySessionId = 'participant';
+    data.usabilitySessions = [{ id: 'participant', mode: 'participant', startedAt: new Date().toISOString(), taskRuns: [], events: [], responses: [], observations: [] }];
+    expect(showsResearchUi(data)).toBe(false);
+    data.usabilitySessions[0].mode = 'researcher';
+    expect(showsResearchUi(data)).toBe(true);
   });
 });
 

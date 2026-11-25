@@ -11,8 +11,7 @@ test('study recipe image runs through real browser OCR into editable personal re
   await page.getByRole('button', { name: 'Start new session' }).click();
   const task = page.getByRole('article').filter({ hasText: 'Personal recipe import' });
   await task.getByRole('button', { name: 'Launch task' }).click();
-  await expect(page.getByRole('img', { name: /Study recipe screenshot/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Scan this image' }).click();
+  await page.getByLabel('Choose recipe image').setInputFiles(studyImage('recipe-screenshot.png'));
   await expect(page.getByRole('heading', { name: 'Review what we found' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByLabel('Recipe name')).toHaveValue(/Creamy Spinach Pasta/i);
   await expect(page.getByText('Original text')).toBeVisible();

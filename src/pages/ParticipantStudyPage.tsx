@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { usabilityTasks } from '../domain/usability';
+import { studyAssetUrl, usabilityTasks, type UsabilityStudyAsset } from '../domain/usability';
 import {
   createUsabilityExportPayload,
   downloadUsabilityResults,
@@ -101,6 +101,7 @@ export function ParticipantStudyPage() {
       <span className="overline">Task {session.taskRuns.length} of 7</span>
       <h1>Task in progress</h1>
       <blockquote className="participant-task-prompt">{task.prompt}</blockquote>
+      {task.studyAsset && <StudyMaterial asset={task.studyAsset} />}
       <p>Your progress is still saved in this browser.</p>
       <button className="button primary full" onClick={() => navigate(task.startPath)}>Continue task</button>
     </section></StudyShell>;
@@ -116,8 +117,18 @@ export function ParticipantStudyPage() {
     <span className="overline">Task {taskIndex + 1} of 7</span>
     <h1>{task.title}</h1>
     <blockquote className="participant-task-prompt">{task.prompt}</blockquote>
+    {task.studyAsset && <StudyMaterial asset={task.studyAsset} />}
     <button className="button primary full" onClick={() => beginTask(taskIndex)}>Begin task</button>
   </section></StudyShell>;
+}
+
+function StudyMaterial({ asset }: { asset: UsabilityStudyAsset }) {
+  const url = studyAssetUrl(asset.path, import.meta.env.BASE_URL);
+  return <section className="participant-study-material" aria-label="Study material">
+    <span className="overline">{asset.label}</span>
+    <a className="study-material-preview" href={url} target="_blank" rel="noreferrer" aria-label={`Open ${asset.label.toLowerCase()}`}><img src={url} alt={`${asset.label} screenshot`} /></a>
+    <div className="button-row"><a className="button secondary" href={url} target="_blank" rel="noreferrer">Open image</a><a className="button ghost" href={url} download>Download image</a></div>
+  </section>;
 }
 
 function PostTaskScreen({ run, isLast }: { run: UsabilityTaskRun; isLast: boolean }) {

@@ -4,6 +4,7 @@ import { useAppState } from '../state/AppState';
 import { NativeRuntimeBridge } from './NativeRuntimeBridge';
 import { Icon, type IconName } from './Icon';
 import { UsabilityTaskPrompt } from './UsabilityTaskPrompt';
+import { recipeOpenedMetadata } from '../domain/usability';
 
 const navItems = [
   { to: '/', label: 'Today', icon: 'home' },
@@ -34,7 +35,10 @@ export function Layout() {
   useEffect(() => {
     if (!activeRun || activeRun.status !== 'running') return;
     actions.logUsabilityEvent('page_visited', undefined, location.pathname);
-    if (/^\/recipes\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/import')) actions.logUsabilityEvent('recipe_opened', { recipeId: location.pathname.split('/').pop() ?? '' }, location.pathname);
+    if (/^\/recipes\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/import')) {
+      const recipeId = location.pathname.split('/').pop() ?? '';
+      actions.logUsabilityEvent('recipe_opened', recipeOpenedMetadata(data, recipeId), location.pathname);
+    }
     if (visited.current && navigationType === 'POP') actions.logUsabilityEvent('back_navigation', undefined, location.pathname);
     visited.current = true;
   }, [location.pathname, navigationType, activeRun?.status, activeRun?.startedAt]);

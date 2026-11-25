@@ -6,6 +6,7 @@ import type { ImportSource, QuantityMode, StorageLocation, Unit } from '../domai
 import { foodCamera, type CameraPurpose } from '../platform/camera/CameraAdapter';
 import { useAppState } from '../state/AppState';
 import { Icon } from '../components/Icon';
+import { showsResearchUi } from '../domain/usability';
 
 type CaptureFlow = 'quick' | 'grocery' | 'receipt' | 'package';
 type View = 'choices' | 'quick' | 'capture' | 'processing' | 'review' | 'manual' | 'receipt-text' | 'failure';
@@ -39,6 +40,7 @@ export function AddFoodPage() {
   const [receiptText, setReceiptText] = useState('');
   const [candidates, setCandidates] = useState<FoodCandidate[]>([]);
   const [manual, setManual] = useState(() => makeCandidate('manual', '', 'exact', '1', '', 'item', 'fridge'));
+  const researchUi = showsResearchUi(data);
 
   useEffect(() => () => {
     abortOcr.current?.abort();
@@ -46,11 +48,11 @@ export function AddFoodPage() {
   }, []);
   useEffect(() => {
     const fixture = params.get('fixture');
-    if (data.experienceMode === 'research' && (fixture === 'grocery' || fixture === 'duplicate')) { setFlow('grocery'); setCandidates(groceryCandidates()); setView('review'); }
-    if (data.experienceMode === 'research' && fixture === 'receipt') { setFlow('receipt'); setCandidates(receiptCandidates()); setView('review'); }
-  }, [params, data.experienceMode]);
+    if (researchUi && (fixture === 'grocery' || fixture === 'duplicate')) { setFlow('grocery'); setCandidates(groceryCandidates()); setView('review'); }
+    if (researchUi && fixture === 'receipt') { setFlow('receipt'); setCandidates(receiptCandidates()); setView('review'); }
+  }, [params, researchUi]);
 
-  const isResearchFixture = data.experienceMode === 'research' && Boolean(params.get('fixture'));
+  const isResearchFixture = researchUi && Boolean(params.get('fixture'));
   const beginQuick = () => { setFlow('quick'); setView('quick'); actions.logUsabilityEvent('quick_add_opened'); };
   const beginCapture = (nextFlow: 'receipt' | 'package') => { setFlow(nextFlow); setView('capture'); };
   const chooseFile = () => fileInput.current?.click();

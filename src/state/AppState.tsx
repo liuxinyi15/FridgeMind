@@ -368,13 +368,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     handleFood: (foodId, outcome) => setData((current) => {
       const food = current.inventory.find((item) => item.id === foodId);
       if (!food || outcome === 'still') return current;
+      const wasAttentionFood = food.kind !== 'leftover' && food.batches.some((batch) => batch.state === 'use_soon');
       const inventory = outcome === 'used' || outcome === 'remove'
         ? current.inventory.filter((item) => item.id !== foodId)
         : current.inventory.map((item) => item.id !== foodId ? item : outcome === 'frozen'
           ? { ...item, batches: item.batches.map((batch) => ({ ...batch, storage: 'freezer' as const, state: 'frozen' as const })) }
           : item);
       const eventType = outcome === 'frozen' ? 'frozen' as const : outcome === 'used' ? 'finished' as const : 'discarded' as const;
-      return { ...current, inventory, inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId, type: eventType, at: new Date().toISOString() }] };
+      const updated = { ...current, inventory, inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId, type: eventType, at: new Date().toISOString() }] };
+      return wasAttentionFood ? recordUsabilityEvent(updated, 'food_attention_handled', { foodId, outcome }) : updated;
     }),
     useSomeFood: (foodId, amount) => setData((current) => {
       const factor = amount === 'little' ? .85 : amount === 'half' ? .5 : .2;

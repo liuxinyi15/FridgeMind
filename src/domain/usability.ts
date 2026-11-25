@@ -1,4 +1,11 @@
-import type { UsabilityEvent, UsabilityEventType, UsabilityTaskId, UsabilityTaskRun } from './types';
+import { matchRecipe, recipeAvailability } from './inventory';
+import type { AppData, UsabilityEvent, UsabilityEventType, UsabilityTaskId, UsabilityTaskRun } from './types';
+
+export interface UsabilityStudyAsset {
+  type: 'image';
+  path: string;
+  label: string;
+}
 
 export interface UsabilityTaskDefinition {
   id: UsabilityTaskId;
@@ -8,6 +15,7 @@ export interface UsabilityTaskDefinition {
   success: string;
   startPath: string;
   capture: string[];
+  studyAsset?: UsabilityStudyAsset;
 }
 
 export const usabilityTasks: UsabilityTaskDefinition[] = [
@@ -37,6 +45,7 @@ export const usabilityTasks: UsabilityTaskDefinition[] = [
     success: 'OCR output reaches structured review.',
     startPath: '/recipes/import',
     capture: ['OCR discovery', 'Review and correction', 'Fallback behaviour', 'Perceived effort'],
+    studyAsset: { type: 'image', path: '/study/recipe-screenshot.png', label: 'Test recipe' },
   },
   {
     id: 'task-4',
@@ -108,11 +117,36 @@ export function taskCompletesFromEvent(taskId: UsabilityTaskId, type: UsabilityE
   if (taskId === 'task-1') return type === 'quick_add_parsed' || type === 'ocr_parse_reviewed' || type === 'recipe_opened';
   if (taskId === 'task-2') return type === 'quick_add_parsed';
   if (taskId === 'task-3') return type === 'ocr_parse_reviewed';
-  if (taskId === 'task-4') return type === 'recipe_opened';
-  if (taskId === 'task-5') return type === 'recipe_opened' || type === 'food_corrected';
+  if (taskId === 'task-4') return type === 'recipe_opened' && _metadata?.availability === 'READY';
+  if (taskId === 'task-5') return (type === 'recipe_opened' && _metadata?.usesAttentionFood === true) || type === 'food_attention_handled';
   if (taskId === 'task-6') return type === 'cooking_completed';
   if (taskId === 'task-7') return type === 'leftover_selected';
   return false;
+}
+
+export function activeUsabilitySession(data: Pick<AppData, 'currentUsabilitySessionId' | 'usabilitySessions'>) {
+  return data.usabilitySessions.find((session) => session.id === data.currentUsabilitySessionId && !session.completedAt);
+}
+
+export function isParticipantStudy(data: Pick<AppData, 'currentUsabilitySessionId' | 'usabilitySessions'>) {
+  return activeUsabilitySession(data)?.mode === 'participant';
+}
+
+export function showsResearchUi(data: Pick<AppData, 'experienceMode' | 'currentUsabilitySessionId' | 'usabilitySessions'>) {
+  return data.experienceMode === 'research' && !isParticipantStudy(data);
+}
+
+export function recipeOpenedMetadata(data: AppData, recipeId: string) {
+  const recipe = data.recipes.find((item) => item.id === recipeId);
+  if (!recipe) return { recipeId, availability: 'NOT_PRACTICAL' as const, usesAttentionFood: false };
+  const matches = matchRecipe(recipe, data.profile.routine.typicalServings, data.inventory, data.substitutions);
+  const attentionFoods = new Set(data.inventory.filter((food) => food.kind !== 'leftover' && food.batches.some((batch) => batch.state === 'use_soon')).map((food) => food.canonicalName));
+  const usesAttentionFood = recipe.ingredients.some((ingredient) => attentionFoods.has(data.substitutions[`${recipe.id}:${ingredient.id}`] ?? ingredient.canonicalName));
+  return { recipeId, availability: recipeAvailability(matches, recipe.minutes), usesAttentionFood };
+}
+
+export function studyAssetUrl(path: string, baseUrl: string) {
+  return `${baseUrl.replace(/\/?$/, '/')}${path.replace(/^\/+/, '')}`;
 }
 
 export function calculateTaskMetrics(run: UsabilityTaskRun, events: UsabilityEvent[]) {
@@ -121,7 +155,7 @@ export function calculateTaskMetrics(run: UsabilityTaskRun, events: UsabilityEve
     const eventTime = new Date(event.at).getTime();
     return event.taskId === run.taskId && eventTime >= new Date(run.startedAt).getTime() && (!endedAt || eventTime <= new Date(endedAt).getTime());
   });
-  const interactionTypes: UsabilityEventType[] = ['primary_cta_clicked', 'secondary_cta_clicked', 'back_navigation', 'more_opened', 'recommendation_explanation_opened', 'explanatory_disclosure_opened', 'recipe_opened', 'meal_context_changed', 'uncertainty_resolved', 'food_corrected', 'shopping_item_added', 'duplicate_shopping_attempt', 'shopping_item_reconciled', 'duplicate_fridge_attempt', 'cooking_started', 'recipe_correction_opened', 'cooking_completed', 'leftover_saved', 'leftover_selected', 'dead_end_marked', 'ocr_started', 'ocr_completed', 'ocr_returned_empty', 'ocr_text_corrected', 'ocr_parse_reviewed', 'ocr_fallback_used', 'quick_add_opened', 'quick_add_parsed', 'quick_add_item_edited', 'receipt_ocr_used', 'package_ocr_used'];
+  const interactionTypes: UsabilityEventType[] = ['primary_cta_clicked', 'secondary_cta_clicked', 'back_navigation', 'more_opened', 'recommendation_explanation_opened', 'explanatory_disclosure_opened', 'recipe_opened', 'meal_context_changed', 'uncertainty_resolved', 'food_corrected', 'food_attention_handled', 'shopping_item_added', 'duplicate_shopping_attempt', 'shopping_item_reconciled', 'duplicate_fridge_attempt', 'cooking_started', 'recipe_correction_opened', 'cooking_completed', 'leftover_saved', 'leftover_selected', 'dead_end_marked', 'ocr_started', 'ocr_completed', 'ocr_returned_empty', 'ocr_text_corrected', 'ocr_parse_reviewed', 'ocr_fallback_used', 'quick_add_opened', 'quick_add_parsed', 'quick_add_item_edited', 'receipt_ocr_used', 'package_ocr_used'];
   return {
     completion: run.status === 'completed',
     interactions: taskEvents.filter((event) => interactionTypes.includes(event.type)).length,
