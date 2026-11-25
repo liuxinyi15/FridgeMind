@@ -6,3 +6,6 @@ playwright-report
 .DS_Store
 *.log
 *.tsbuildinfo
+
+# Generated presentation artefacts
+presentation_output/
