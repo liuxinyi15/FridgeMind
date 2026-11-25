@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { canonicalise } from '../domain/inventory';
 import { parseRecipeText } from '../domain/parser';
-import type { Recipe, RecipeIngredient, Unit } from '../domain/types';
+import type { PersonalRecipeSource, Recipe, RecipeIngredient, Unit } from '../domain/types';
 import { imageFileToCompressedDataUrl } from '../platform/images/prepareImage';
 import { useAppState } from '../state/AppState';
 import { Icon } from '../components/Icon';
@@ -60,6 +60,7 @@ export function RecipeImportPage() {
   const [imageSource, setImageSource] = useState<File | string | undefined>(editRecipe?.importedImage);
   const [useCover, setUseCover] = useState(Boolean(editRecipe?.importedImage));
   const [progress, setProgress] = useState(0);
+  const [creationSource, setCreationSource] = useState<PersonalRecipeSource>('manual');
   const researchUi = showsResearchUi(data);
 
   useEffect(() => () => {
@@ -68,12 +69,12 @@ export function RecipeImportPage() {
   }, []);
   useEffect(() => {
     const fixture = params.get('fixture');
-    if (researchUi && fixture === 'image') { setDraft(imageRecipe()); setView('review'); }
+    if (researchUi && fixture === 'image') { setDraft(imageRecipe()); setCreationSource('ocr'); setView('review'); }
     if (researchUi && fixture === 'text') { setText(sample); setView('text'); }
   }, [params, researchUi]);
 
   const isResearchFixture = researchUi && params.get('fixture') === 'image';
-  const parse = () => { setDraft({ ...parseRecipeText(text), importedImage: useCover ? imagePreview : undefined }); setView('review'); };
+  const parse = () => { setDraft({ ...parseRecipeText(text), importedImage: useCover ? imagePreview : undefined }); setCreationSource('text'); setView('review'); };
   const runOcr = async (source: File | string, preview: string) => {
     abortOcr.current?.abort(); const controller = new AbortController(); abortOcr.current = controller;
     setImageSource(source); setImagePreview(preview); setUseCover(true); setView('processing'); setProgress(0);
@@ -85,7 +86,7 @@ export function RecipeImportPage() {
       actions.logUsabilityEvent('ocr_completed', { flow: 'recipe', characters: raw.length });
       const parsed = parseRecipeText(raw);
       if (!parsed.ingredients.length || parsed.name === 'Imported recipe') { actions.logUsabilityEvent('ocr_returned_empty', { flow: 'recipe', textFound: true }); setView('failure'); return; }
-      setDraft(parsed); ocrDraftEdited.current = false;
+      setDraft(parsed); setCreationSource('ocr'); ocrDraftEdited.current = false;
       actions.logUsabilityEvent('ocr_parse_reviewed', { flow: 'recipe', ingredients: parsed.ingredients.length });
       setView('review');
     } catch (error) {
@@ -98,7 +99,7 @@ export function RecipeImportPage() {
     const url = URL.createObjectURL(file); temporaryPreview.current = url;
     void runOcr(file, url);
   };
-  const startManual = () => { setDraft(blankRecipe()); setView('review'); };
+  const startManual = () => { setDraft(blankRecipe()); setCreationSource('manual'); setView('review'); };
   const fallback = (next: 'text' | 'manual') => { actions.logUsabilityEvent('ocr_fallback_used', { flow: 'recipe', fallback: next }); if (next === 'text') setView('text'); else startManual(); };
   const markOcrCorrection = () => {
     if (!draft?.originalText || ocrDraftEdited.current) return;
@@ -116,7 +117,7 @@ export function RecipeImportPage() {
       }
     }
     const recipe = { ...draft, ingredients: draft.ingredients.filter((item) => item.name.trim()), importedImage: useCover ? cover : undefined, ownership: 'personal' as const };
-    if (editRecipe) actions.updateRecipe(recipe); else actions.addRecipe(recipe);
+    if (editRecipe) actions.updateRecipe(recipe); else actions.addRecipe(recipe, creationSource);
     navigate(`/recipes/${recipe.id}`);
   };
   const updateDraft = (change: Partial<Recipe>) => { markOcrCorrection(); if (draft) setDraft({ ...draft, ...change }); };
@@ -130,6 +131,6 @@ export function RecipeImportPage() {
     {view === 'failure' && <section className="empty-state"><Icon name="info" size={30} /><h2>We couldn’t read enough text from this image.</h2><p>Try another clear image, paste the recipe text, or create it manually.</p><div className="button-row"><button className="button primary" onClick={() => imageInput.current?.click()}>Try another image</button><button className="button secondary" onClick={() => fallback('text')}>Paste recipe text</button><button className="button ghost" onClick={() => fallback('manual')}>Create manually</button></div></section>}
     {view === 'review' && draft && <section className="recipe-review form-card">{isResearchFixture && <p className="fixture-label">Research Mode · simulated recognition fixture</p>}{imagePreview && <div className="recipe-cover-review"><img src={imagePreview} alt="Recipe cover preview" /><label><input type="checkbox" checked={useCover} onChange={(event) => setUseCover(event.target.checked)} /> Use image as cover</label></div>}<div className="form-grid"><label className="wide">Recipe name<input value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} /></label><label>Servings<input type="number" min="1" max="12" value={draft.baseServings} onChange={(event) => updateDraft({ baseServings: Number(event.target.value) || 1 })} /></label><label>Preparation time<input type="number" min="0" value={draft.minutes} onChange={(event) => updateDraft({ minutes: Number(event.target.value) || 0 })} /></label></div><div className="review-section-heading"><h2>Ingredients</h2><button className="text-button" onClick={() => updateDraft({ ingredients: [...draft.ingredients, ingredient(`new-${draft.ingredients.length}`, '', 1, 'item')] })}>Add ingredient</button></div><div className="ingredient-edit-list">{draft.ingredients.map((item, index) => <div className="ingredient-edit" key={item.id}><label><span className="sr-only">Ingredient {index + 1} name</span><input aria-label={`Ingredient ${index + 1} name`} value={item.name} onChange={(event) => updateIngredient(item.id, { name: event.target.value })} /></label><label><span className="sr-only">Quantity</span><input aria-label={`Ingredient ${index + 1} quantity`} type="number" min="0" step="any" value={item.quantity} onChange={(event) => updateIngredient(item.id, { quantity: Number(event.target.value) })} /></label><label><span className="sr-only">Unit</span><select aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => updateIngredient(item.id, { unit: event.target.value as Unit })}><option>g</option><option>ml</option><option>item</option><option>tbsp</option><option>tsp</option><option>cup</option></select></label><button className="icon-button small" aria-label={`Delete ingredient ${index + 1}`} onClick={() => updateDraft({ ingredients: draft.ingredients.filter((ingredientItem) => ingredientItem.id !== item.id) })}><Icon name="trash" size={17} /></button></div>)}</div><label>Instructions<textarea rows={5} value={draft.steps.join('\n')} onChange={(event) => updateDraft({ steps: event.target.value.split('\n').filter(Boolean) })} placeholder="Optional" /></label>{draft.originalText && <details className="concept-card"><summary>Original text</summary><pre className="original-recipe-text">{draft.originalText}</pre></details>}<label>Tags<input value={draft.tags.join(', ')} onChange={(event) => updateDraft({ tags: event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} placeholder="Quick, vegetarian" /></label><div className="sticky-actions import-sticky"><button className="button secondary" onClick={() => editRecipe ? navigate(`/recipes/${editRecipe.id}`) : setView('choices')}>Cancel</button><button className="button primary" onClick={() => void save()} disabled={!draft.name.trim() || !draft.ingredients.some((item) => item.name.trim())}>{editRecipe ? 'Save changes' : 'Save recipe'}</button></div></section>}
     <details className="concept-card"><summary>Image privacy</summary><p>OCR runs locally in your browser using Tesseract.js. Images are not uploaded. A resized copy is stored only if you choose to keep it as the recipe cover.</p></details>
-    <input ref={imageInput} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Choose recipe image" onChange={(event) => handleImage(event.target.files?.[0])} />
+    <input ref={imageInput} className="sr-only" type="file" accept="image/*" aria-label="Choose recipe image" onChange={(event) => handleImage(event.target.files?.[0])} />
   </div>;
 }

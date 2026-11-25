@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import path from 'node:path';
+
+const recipeStudyImage = path.resolve('public/study/recipe-screenshot.png');
 
 async function answerRatings(page: import('@playwright/test').Page, final = false) {
   await page.getByRole('radio', { name: '5 — Very easy' }).check();
@@ -127,6 +130,14 @@ test('participant screens have no horizontal overflow at study phone widths', as
     await expectNoOverflow();
     await page.getByRole('button', { name: 'Begin task' }).click();
     await expect(page).toHaveURL(/\/recipes\/import$/);
+    await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
+    await expectNoOverflow();
+    await page.getByLabel('Choose recipe image').setInputFiles(recipeStudyImage);
+    await expect(page.getByRole('heading', { name: 'Reading recipe…', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review what we found' })).toBeVisible({ timeout: 60_000 });
+    await expectNoOverflow();
+    await page.getByRole('button', { name: 'Save recipe' }).click();
+    await expect(page.getByText('Your recipe')).toBeVisible();
     await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
     await expectNoOverflow();
     await page.getByRole('button', { name: 'I’m finished' }).click();

@@ -83,6 +83,8 @@ test('task fixtures 2, 4, 5 and 6 reach their distinct success conditions', asyn
   await page.getByRole('button', { name: /Quick add foods/ }).click();
   await page.getByLabel('Food names').fill('spinach, mushrooms, chicken, pasta');
   await page.getByRole('button', { name: 'Review foods' }).click();
+  await expect(page.getByText('Task complete')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add 4 foods' }).click();
   await expect(page.getByText('Task complete')).toBeVisible();
 
   await launchTask(page, 'No-shopping decision');
@@ -106,6 +108,33 @@ test('task fixtures 2, 4, 5 and 6 reach their distinct success conditions', asyn
   await expect(page.getByRole('row', { name: /4 Yes/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /5 Yes/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /6 Yes/ })).toBeVisible();
+});
+
+test('Task 2 automatic evidence requires a persisted Quick Add batch', async ({ page }) => {
+  await completeOnboarding(page);
+  await page.goto('/settings/research/usability');
+  await page.getByRole('button', { name: 'Start new session' }).click();
+  await launchTask(page, 'Low-friction food entry');
+
+  await page.getByRole('button', { name: /Quick add foods/ }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  let evidence = await latestRun(page);
+  expect(evidence.run.automaticSuccessAt).toBeUndefined();
+  expect(evidence.events.some((event: { type: string }) => event.type === 'food_batch_added')).toBe(false);
+
+  await page.getByRole('button', { name: /Quick add foods/ }).click();
+  await page.getByLabel('Food names').fill('spinach, mushrooms, chicken, pasta');
+  await page.getByRole('button', { name: 'Review foods' }).click();
+  await expect(page.getByText('Task complete')).toHaveCount(0);
+  evidence = await latestRun(page);
+  expect(evidence.run.automaticSuccessAt).toBeUndefined();
+  expect(evidence.events.some((event: { type: string }) => event.type === 'quick_add_parsed')).toBe(true);
+
+  await page.getByRole('button', { name: 'Add 4 foods' }).click();
+  await expect(page.getByText('Task complete')).toBeVisible();
+  evidence = await latestRun(page);
+  expect(evidence.run.automaticSuccessAt).toBeTruthy();
+  expect(evidence.events.findLast((event: { type: string }) => event.type === 'food_batch_added')).toMatchObject({ metadata: { count: 4, source: 'quick' } });
 });
 
 test('Task 4 automatic evidence requires a genuinely READY recipe', async ({ page }) => {

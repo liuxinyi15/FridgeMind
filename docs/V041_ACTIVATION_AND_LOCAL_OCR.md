@@ -18,17 +18,21 @@ It does not identify arbitrary grocery objects, infer hidden quantities, infer e
 
 Run the production build on each available device and complete these checks without Research Mode fixtures.
 
+The save evidence events (`food_batch_added` and `personal_recipe_saved`) are exported as objective milestones but are intentionally excluded from the interaction count. The existing save-button click already represents the interaction; counting both would double-count one user action.
+
 ### iPhone Safari
 
 1. Open Add Food, confirm Quick Add accepts a comma-separated list and the keyboard does not cause horizontal overflow.
 2. Open Scan Package and Scan Receipt. Verify the camera/photo picker, local OCR progress, cancellation, editable review, and save.
-3. Open Add Recipe, scan a readable screenshot, correct one field, expand Original text, save, reload, and confirm the recipe persists.
-4. Complete a participant study task, reload `/test`, resume it, and download the JSON export.
-5. Confirm fixed bottom navigation remains reachable and the page stays responsive during OCR.
+3. Open the participant link and advance to Task 3. Open or download the supplied recipe screenshot, then return to FridgeMind.
+4. Begin Task 3 and choose Scan screenshot or photo. Confirm the primary picker offers Photos/image library or Files rather than forcing the rear camera.
+5. Select the saved screenshot, observe local OCR progress, review the parsed recipe, save it, click “I’m finished”, and submit the post-task ratings.
+6. Reload `/test`, resume the study where applicable, and download the JSON export.
+7. Confirm fixed bottom navigation remains reachable and the page stays responsive without horizontal overflow.
 
 ### Android Chrome
 
-Repeat the iPhone checks, including camera capture and back-navigation during OCR. Confirm permission denial returns to a usable fallback.
+Repeat the iPhone checks, confirming the image/file picker offers the gallery and Files. Also verify back-navigation during OCR and that cancellation returns to a usable flow.
 
 ### Desktop Chrome
 

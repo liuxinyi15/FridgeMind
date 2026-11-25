@@ -11,14 +11,27 @@ test('study recipe image runs through real browser OCR into editable personal re
   await page.getByRole('button', { name: 'Start new session' }).click();
   const task = page.getByRole('article').filter({ hasText: 'Personal recipe import' });
   await task.getByRole('button', { name: 'Launch task' }).click();
-  await page.getByLabel('Choose recipe image').setInputFiles(studyImage('recipe-screenshot.png'));
+  const recipeInput = page.getByLabel('Choose recipe image');
+  await expect(recipeInput).toHaveAttribute('accept', 'image/*');
+  await expect(recipeInput).not.toHaveAttribute('capture');
+  await recipeInput.setInputFiles(studyImage('recipe-screenshot.png'));
   await expect(page.getByRole('heading', { name: 'Review what we found' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('Task complete')).toHaveCount(0);
   await expect(page.getByLabel('Recipe name')).toHaveValue(/Creamy Spinach Pasta/i);
   await expect(page.getByText('Original text')).toBeVisible();
   await page.getByLabel('Recipe name').fill('Creamy Spinach Pasta favourite');
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page.getByRole('heading', { name: 'Creamy Spinach Pasta favourite' })).toBeVisible();
   await expect(page.getByText('Your recipe')).toBeVisible();
+  await expect(page.getByText('Task complete')).toBeVisible();
+  const evidence = await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('fridgemind:v0.1:data')!);
+    const session = data.usabilitySessions.find((item: { id: string }) => item.id === data.currentUsabilitySessionId);
+    return { run: session.taskRuns.at(-1), saved: session.events.findLast((event: { type: string }) => event.type === 'personal_recipe_saved') };
+  });
+  expect(evidence.run.automaticSuccessAt).toBeTruthy();
+  expect(evidence.saved).toMatchObject({ metadata: { source: 'ocr' } });
+  expect(evidence.saved.metadata.recipeId).toMatch(/^imported-/);
 });
 
 test('real receipt OCR proposes groceries and reconciles a shopping match', async ({ page }) => {

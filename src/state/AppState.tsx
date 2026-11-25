@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { canonicalise, deductIngredient, matchRecipe, scaleIngredients } from '../domain/inventory';
 import { respondToHabit as applyHabitResponse } from '../domain/habit';
-import type { AppData, FoodItem, ImportSource, MealContextChoice, NotificationPreference, QuantityMode, Recipe, RecommendationFeedbackAction, ShoppingItem, Unit, UsabilityEventType, UsabilityTaskId } from '../domain/types';
+import type { AppData, FoodItem, ImportSource, MealContextChoice, NotificationPreference, PersonalRecipeSource, QuantityMode, Recipe, RecommendationFeedbackAction, ShoppingItem, Unit, UsabilityEventType, UsabilityTaskId } from '../domain/types';
 import { taskCompletesFromEvent } from '../domain/usability';
 import { sanitiseParticipantId } from '../domain/usabilityExport';
 import { loadAppData, resetAppData, saveAppData } from '../data/repositories';
@@ -29,7 +29,7 @@ interface AppActions {
   addFood: (draft: FoodDraft, options?: boolean | AddFoodOptions) => void;
   correctFood: (foodId: string, amount: number | null, unit: Unit, mode?: QuantityMode, description?: string) => void;
   resolveIngredientAmount: (foodId: string, required: number, answer: 'enough' | 'not_enough' | 'none') => void;
-  addRecipe: (recipe: Recipe) => void;
+  addRecipe: (recipe: Recipe, source?: PersonalRecipeSource) => void;
   updateRecipe: (recipe: Recipe) => void;
   deleteRecipe: (recipeId: string) => void;
   toggleSavedRecipe: (recipeId: string) => void;
@@ -233,7 +233,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       };
       return recordUsabilityEvent(updated, 'uncertainty_resolved', { answer, required });
     }),
-    addRecipe: (recipe) => setData((current) => ({ ...current, recipes: [...current.recipes, { ...recipe, ownership: recipe.ownership ?? 'personal', createdAt: recipe.createdAt ?? new Date().toISOString() }] })),
+    addRecipe: (recipe, source) => setData((current) => {
+      const savedRecipe = { ...recipe, ownership: recipe.ownership ?? 'personal' as const, createdAt: recipe.createdAt ?? new Date().toISOString() };
+      const updated = { ...current, recipes: [...current.recipes, savedRecipe] };
+      return source ? recordUsabilityEvent(updated, 'personal_recipe_saved', { recipeId: savedRecipe.id, source }) : updated;
+    }),
     updateRecipe: (recipe) => setData((current) => ({ ...current, recipes: current.recipes.map((item) => item.id === recipe.id && item.ownership === 'personal' ? { ...recipe, ownership: 'personal' } : item) })),
     deleteRecipe: (recipeId) => setData((current) => {
       const recipe = current.recipes.find((item) => item.id === recipeId);

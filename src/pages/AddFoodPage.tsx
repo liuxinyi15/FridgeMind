@@ -111,13 +111,16 @@ export function AddFoodPage() {
   const selected = candidates.filter((item) => item.selected && item.name.trim());
   const sourceForFlow = (): ImportSource => flow === 'quick' ? 'quick' : flow === 'receipt' ? 'receipt' : flow === 'package' ? 'package' : 'photo';
   const saveBatch = () => {
+    const source = sourceForFlow();
+    const count = selected.length;
     selected.forEach((item) => {
       const shoppingMatch = data.shopping.find((shopping) => !shopping.addedToFridge && shopping.canonicalName === canonicalise(item.name));
       const amount = item.quantityMode === 'unknown' || !item.quantity ? null : Number(item.quantity);
       if (flow === 'receipt' && shoppingMatch) actions.reconcileShopping(shoppingMatch.id, amount, item.unit);
-      else actions.addFood({ name: item.name, quantity: amount, quantityMode: item.quantityMode, quantityDescription: item.quantityDescription || undefined, unit: item.unit, relevantDate: item.date || undefined, dateType: item.date ? 'use_by' : 'unknown', storage: item.storage, source: sourceForFlow(), category: item.category }, { source: sourceForFlow(), mergeExisting: item.mergeChoice === 'merge' });
+      else actions.addFood({ name: item.name, quantity: amount, quantityMode: item.quantityMode, quantityDescription: item.quantityDescription || undefined, unit: item.unit, relevantDate: item.date || undefined, dateType: item.date ? 'use_by' : 'unknown', storage: item.storage, source, category: item.category }, { source, mergeExisting: item.mergeChoice === 'merge' });
     });
-    navigate('/fridge', { state: { addedCount: selected.length } });
+    actions.logUsabilityEvent('food_batch_added', { count, source });
+    navigate('/fridge', { state: { addedCount: count } });
   };
   const saveManual = () => { actions.addFood({ name: manual.name, quantity: manual.quantityMode === 'unknown' || !manual.quantity ? null : Number(manual.quantity), quantityMode: manual.quantityMode, quantityDescription: manual.quantityDescription || undefined, unit: manual.unit, relevantDate: manual.date || undefined, dateType: manual.date ? 'best_before' : 'unknown', storage: manual.storage, source: 'manual' }, { source: 'manual', mergeExisting: manual.mergeChoice === 'merge' }); navigate('/fridge', { state: { addedCount: 1 } }); };
   const manualDuplicate = data.inventory.find((food) => food.kind !== 'leftover' && food.canonicalName === canonicalise(manual.name));

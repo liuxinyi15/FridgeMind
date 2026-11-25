@@ -10,8 +10,14 @@ describe('usability task definitions', () => {
 
   it('uses distinct success events for each current-value task', () => {
     expect(taskCompletesFromEvent('task-1', 'quick_add_parsed')).toBe(true);
-    expect(taskCompletesFromEvent('task-2', 'quick_add_parsed')).toBe(true);
-    expect(taskCompletesFromEvent('task-3', 'ocr_parse_reviewed')).toBe(true);
+    expect(taskCompletesFromEvent('task-2', 'quick_add_parsed')).toBe(false);
+    expect(taskCompletesFromEvent('task-2', 'food_batch_added', { count: 4, source: 'quick' })).toBe(true);
+    expect(taskCompletesFromEvent('task-2', 'food_batch_added', { count: 0, source: 'quick' })).toBe(false);
+    expect(taskCompletesFromEvent('task-2', 'food_batch_added', { count: 4, source: 'receipt' })).toBe(false);
+    expect(taskCompletesFromEvent('task-3', 'ocr_parse_reviewed')).toBe(false);
+    expect(taskCompletesFromEvent('task-3', 'personal_recipe_saved', { recipeId: 'recipe-1', source: 'ocr' })).toBe(true);
+    expect(taskCompletesFromEvent('task-3', 'personal_recipe_saved', { recipeId: 'recipe-2', source: 'manual' })).toBe(false);
+    expect(taskCompletesFromEvent('task-3', 'ocr_fallback_used', { fallback: 'manual' })).toBe(false);
     expect(taskCompletesFromEvent('task-4', 'recipe_opened', { availability: 'READY' })).toBe(true);
     expect(taskCompletesFromEvent('task-4', 'recipe_opened', { availability: 'MISSING_ITEMS' })).toBe(false);
     expect(taskCompletesFromEvent('task-5', 'recipe_opened', { usesAttentionFood: true })).toBe(true);

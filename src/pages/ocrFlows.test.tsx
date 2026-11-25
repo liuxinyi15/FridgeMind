@@ -34,6 +34,13 @@ describe('browser OCR integration boundary', () => {
     expect(screen.getByText(/150g spinach/)).toBeVisible();
   });
 
+  it('offers image-library or file selection without forcing the rear camera', () => {
+    renderRoute('/recipes/import', <RecipeImportPage />);
+    const input = screen.getByLabelText('Choose recipe image');
+    expect(input).toHaveAttribute('accept', 'image/*');
+    expect(input).not.toHaveAttribute('capture');
+  });
+
   it('passes receipt OCR text to conservative grocery proposals', async () => {
     recognise.mockResolvedValue('TESCO\nMUSHROOMS 250G\nBABY SPINACH');
     renderRoute('/fridge/add', <AddFoodPage />);

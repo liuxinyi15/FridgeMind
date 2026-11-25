@@ -108,6 +108,8 @@ export interface Recipe {
   builtInImage?: string;
 }
 
+export type PersonalRecipeSource = 'ocr' | 'text' | 'manual';
+
 export interface SavedRecipe {
   recipeId: string;
   savedAt: string;
@@ -193,7 +195,8 @@ export type UsabilityEventType =
   | 'leftover_saved' | 'leftover_selected' | 'dead_end_marked'
   | 'ocr_started' | 'ocr_completed' | 'ocr_returned_empty' | 'ocr_text_corrected'
   | 'ocr_parse_reviewed' | 'ocr_fallback_used'
-  | 'quick_add_opened' | 'quick_add_parsed' | 'quick_add_item_edited'
+  | 'quick_add_opened' | 'quick_add_parsed' | 'quick_add_item_edited' | 'food_batch_added'
+  | 'personal_recipe_saved'
   | 'receipt_ocr_used' | 'package_ocr_used';
 
 export interface UsabilityEvent {

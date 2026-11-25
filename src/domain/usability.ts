@@ -115,8 +115,8 @@ export const interviewPrompts = [
 
 export function taskCompletesFromEvent(taskId: UsabilityTaskId, type: UsabilityEventType, _metadata?: UsabilityEvent['metadata']) {
   if (taskId === 'task-1') return type === 'quick_add_parsed' || type === 'ocr_parse_reviewed' || type === 'recipe_opened';
-  if (taskId === 'task-2') return type === 'quick_add_parsed';
-  if (taskId === 'task-3') return type === 'ocr_parse_reviewed';
+  if (taskId === 'task-2') return type === 'food_batch_added' && _metadata?.source === 'quick' && typeof _metadata.count === 'number' && _metadata.count > 0;
+  if (taskId === 'task-3') return type === 'personal_recipe_saved' && _metadata?.source === 'ocr';
   if (taskId === 'task-4') return type === 'recipe_opened' && _metadata?.availability === 'READY';
   if (taskId === 'task-5') return (type === 'recipe_opened' && _metadata?.usesAttentionFood === true) || type === 'food_attention_handled';
   if (taskId === 'task-6') return type === 'cooking_completed';
