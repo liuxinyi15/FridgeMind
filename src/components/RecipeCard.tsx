@@ -19,10 +19,11 @@ export function RecipeCard({ recommendation, featured = false }: { recommendatio
       <Link className="recipe-visual" to={`/recipes/${recipe.id}`} aria-label={`View ${recipe.name}`}>
         <RecipeArtwork recipe={recipe} eager={featured} />
         {recommendation.useSoonCoverage > 0 && <span className="image-badge"><Icon name="leaf" size={14} /> Uses food soon</span>}
+        {recipe.ownership === 'personal' && recommendation.useSoonCoverage === 0 && <span className="image-badge"><Icon name="recipes" size={14} /> Your recipe</span>}
       </Link>
       <div className="recipe-card-body">
         <div className="eyebrow-row">
-          <span><Icon name="clock" size={15} /> {recipe.minutes} min</span><span><Icon name="servings" size={15} /> {recipe.baseServings} servings</span>
+          <span><Icon name="clock" size={15} /> {recipe.minutes > 0 ? `${recipe.minutes} min` : 'Time not added'}</span><span><Icon name="servings" size={15} /> {recipe.baseServings} servings</span>
         </div>
         <h3><Link to={`/recipes/${recipe.id}`}>{recipe.name}</Link></h3>
         <div className="recipe-card-footer"><StatusChip tone={recommendation.availability === 'READY' ? 'good' : 'neutral'}>{gapLabel}</StatusChip>{featured && <Link className="button primary compact" to={`/recipes/${recipe.id}`}>Cook this</Link>}</div>

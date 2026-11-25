@@ -28,6 +28,7 @@ The available survey summary includes 52 people living alone and 63 people not c
 - Notification delivery adapters separating proactive decisions from in-app or native local delivery.
 - Safe-area, keyboard and Android hardware-back behaviour.
 - A compact four-tab shell and verified layouts at 320px, 375px and 390px.
+- Capture-first grocery and receipt review, low-effort fridge corrections, and personal recipe image/text/manual imports.
 
 ## Run
 
@@ -74,3 +75,5 @@ No real CV/OCR, arbitrary web parser, safety judgement, backend, remote push, ba
 ## Documentation map
 
 The `docs` directory contains the project brief, survey record, research limitations, requirements, UX/IA/architecture, decision log, backlog, test plan, demo script, PPT evidence log, limitations, changelog, distribution guide, mobile UX audit, devlog and versioned screenshot evidence.
+
+V0.3’s local capture/review model and deterministic recognition boundary are documented in [`docs/V03_CAPTURE_AND_PERSONAL_RECIPES.md`](docs/V03_CAPTURE_AND_PERSONAL_RECIPES.md).

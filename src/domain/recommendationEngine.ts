@@ -60,7 +60,7 @@ export function scoreRecipe(
   const useSoonCoverage = Math.min(1, usedSoon.length / Math.max(1, useSoonIngredients.size));
   const missingIngredientCount = matches.filter((match) => match.status === 'missing' || match.status === 'partial').length;
   const uncertainIngredientCount = matches.filter((match) => match.status === 'uncertain').length;
-  const timeFit = recipe.minutes <= 20 ? 1 : recipe.minutes <= 30 ? 0.82 : recipe.minutes <= 45 ? 0.55 : 0.25;
+  const timeFit = recipe.minutes <= 0 ? .55 : recipe.minutes <= 20 ? 1 : recipe.minutes <= 30 ? 0.82 : recipe.minutes <= 45 ? 0.55 : 0.25;
   const portionFit = recipe.baseServings === typicalServings ? 1 : recipe.baseServings <= 2 ? 0.85 : 0.55;
   const saved = savedRecipes.find((entry) => entry.recipeId === recipe.id);
   const savedPreference = saved?.preference ?? 0;
@@ -95,7 +95,7 @@ export function scoreRecipe(
   if (usedSoon.length) reasons.push(`Uses ${usedSoon.slice(0, 2).map((item) => item.name).join(' and ')} that should be used soon`);
   if (missingIngredientCount === 0 && uncertainIngredientCount === 0) reasons.push('Everything you need is confirmed');
   else if (missingIngredientCount === 1) reasons.push('Only one ingredient is missing');
-  if (recipe.minutes <= 30) reasons.push(`Ready in ${recipe.minutes} minutes`);
+  if (recipe.minutes > 0 && recipe.minutes <= 30) reasons.push(`Ready in ${recipe.minutes} minutes`);
   if (recipe.baseServings === typicalServings) reasons.push(`Matches your usual ${typicalServings}-portion cooking preference`);
   if (saved) reasons.push('One of your saved recipes');
   return {

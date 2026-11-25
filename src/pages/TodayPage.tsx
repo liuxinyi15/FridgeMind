@@ -44,21 +44,22 @@ export function TodayPage() {
 
       {awayActive && <section className="away-summary"><div><span className="overline">Away mode</span><h2>{data.inventory.filter((item) => item.batches.some((batch) => batch.state === 'use_soon')).length} foods may need attention</h2><p>Meal reminders are paused{data.awayMode.until ? ' until ' + new Date(data.awayMode.until + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}.</p></div><button className="button secondary" onClick={() => actions.setAwayMode(false)}>I’m back</button></section>}
 
+      {useSoon && intervention && context !== 'eating_out' && <section className="today-value-section" aria-labelledby="attention-title"><div className="section-heading"><div><span className="overline">What needs attention</span><h2 id="attention-title">Use soon</h2></div></div><UseSoonCard food={useSoon} intervention={intervention} /></section>}
+      {context === 'eating_out' && useSoon && <section className="calm-context-card"><Icon name="snowflake" size={24} /><div><span className="overline">What needs attention</span><h2>One quick fridge check</h2><p>{useSoon.name} may need attention. Freeze or store it if that suits the food and its label.</p><Link className="text-button" to={`/recipes?uses=${useSoon.canonicalName}`}>Find a recipe</Link></div><button className="button secondary" onClick={() => actions.handleFood(useSoon.id, 'frozen')}>I froze it</button></section>}
+
       {!awayActive && context !== 'eating_out' && leftovers.length > 0 && <section className="leftover-hero">
         <div className="leftover-icon"><Icon name="servings" size={26} /></div>
-        <div><span className="overline">Eat this first</span><h2>{leftovers[0].name}</h2><p>{leftovers[0].portions} {leftovers[0].portions === 1 ? 'portion' : 'portions'} left · {storedLabel(leftovers[0].cookedAt, productNow)}</p></div>
+        <div><span className="overline">Already sorted</span><h2>{leftovers[0].name}</h2><p>{leftovers[0].portions} {leftovers[0].portions === 1 ? 'portion' : 'portions'} left · {storedLabel(leftovers[0].cookedAt, productNow)}</p></div>
         <button className="button primary" onClick={() => actions.consumeLeftover(leftovers[0].id)}>Eat 1 portion</button>
       </section>}
 
       {!awayActive && context !== 'eating_out' && !leftovers.length && <section aria-labelledby="suggestions-heading" className="today-recommendations">
-        <h2 id="suggestions-heading" className="sr-only">Your next meal</h2>
+        <div className="section-heading"><div><span className="overline">What can I make</span><h2 id="suggestions-heading">Best matches</h2></div></div>
         {recommendations[0] && <RecipeCard recommendation={recommendations[0]} featured />}
         {recommendations.length > 1 && <div className="more-ideas"><div className="section-heading"><h2>More easy ideas</h2><span>{data.profile.routine.typicalServings} portions</span></div><div className="recipe-list horizontal">{recommendations.slice(1, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div></div>}
         {!recommendations.length && <div className="empty-state"><h2>No strong match right now</h2><p>Check your fridge information or browse recipes when you feel like cooking.</p><Link className="button secondary" to="/recipes">Browse recipes</Link></div>}
       </section>}
 
-      {context === 'eating_out' && useSoon && <section className="calm-context-card"><Icon name="snowflake" size={24} /><div><h2>One quick fridge check</h2><p>{useSoon.name} may need attention. Freeze or store it if that suits the food and its label.</p></div><button className="button secondary" onClick={() => actions.handleFood(useSoon.id, 'frozen')}>I froze it</button></section>}
-      {useSoon && intervention && <UseSoonCard food={useSoon} intervention={intervention} />}
       {!awayActive && data.profile.notifications.habitSuggestions && data.habits[0] && <HabitInsight habit={data.habits[0]} />}
     </div>
   );

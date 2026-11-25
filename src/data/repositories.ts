@@ -26,13 +26,15 @@ export function migrateAppData(saved: Partial<AppData>): AppData {
     batches: item.batches.map((batch) => ({
       ...batch,
       quantityMode: batch.quantityMode ?? (batch.physicalStock === null ? 'unknown' : batch.confidence === 'estimated' ? 'approximate' : 'exact'),
+      source: batch.source ?? 'manual',
     })),
   }));
   return {
     ...seed,
     ...saved,
-    schemaVersion: 3,
+    schemaVersion: 4,
     inventory,
+    recipes: (saved.recipes ?? seed.recipes).map((recipe) => ({ ...recipe, ownership: recipe.ownership ?? (recipe.source === 'imported' || recipe.source === 'created' ? 'personal' : 'built_in') })),
     mealContexts: saved.mealContexts ?? [],
     recommendationFeedback: saved.recommendationFeedback ?? [],
     approvedRoutines: saved.approvedRoutines ?? [],

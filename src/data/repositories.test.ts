@@ -18,7 +18,7 @@ describe('local-first persistence', () => {
     const legacy = createSeedData();
     delete (legacy.inventory[0].batches[0] as Partial<typeof legacy.inventory[0]['batches'][0]>).quantityMode;
     const migrated = migrateAppData({ ...legacy, schemaVersion: undefined });
-    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.schemaVersion).toBe(4);
     expect(migrated.inventory[0].name).toBe('Spinach');
     expect(migrated.inventory[0].batches[0].quantityMode).toBe('exact');
   });

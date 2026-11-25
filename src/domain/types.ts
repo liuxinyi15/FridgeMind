@@ -4,6 +4,7 @@ export type DateType = 'use_by' | 'best_before' | 'unknown';
 export type FoodState = 'fresh' | 'use_soon' | 'stable' | 'frozen' | 'unknown';
 export type StorageLocation = 'fridge' | 'freezer' | 'cupboard';
 export type Unit = 'g' | 'ml' | 'item' | 'tbsp' | 'tsp' | 'cup' | 'portion';
+export type ImportSource = 'manual' | 'photo' | 'receipt' | 'shopping' | 'cooking' | 'seeded';
 
 export interface CookingRoutine {
   cookingFrequency: '0' | '1-2' | '3-4' | '5-7' | '8+';
@@ -50,6 +51,7 @@ export interface FoodBatch {
   insufficientFor?: number;
   state: FoodState;
   note?: string;
+  source?: ImportSource;
 }
 
 export interface FoodItem {
@@ -61,12 +63,13 @@ export interface FoodItem {
   portions?: number;
   cookedAt?: string;
   sourceRecipeId?: string;
+  category?: 'fresh' | 'pantry' | 'frozen';
 }
 
 export interface InventoryEvent {
   id: string;
   foodId: string;
-  type: 'added' | 'corrected' | 'consumed' | 'reserved' | 'released';
+  type: 'added' | 'corrected' | 'consumed' | 'reserved' | 'released' | 'partially_used' | 'finished' | 'discarded' | 'frozen' | 'merged' | 'leftover_created';
   amount?: number;
   unit?: Unit;
   at: string;
@@ -91,7 +94,10 @@ export interface Recipe {
   minutes: number;
   steps: string[];
   tags: string[];
-  source: 'saved' | 'imported' | 'recommended';
+  source: 'saved' | 'imported' | 'recommended' | 'created';
+  ownership?: 'built_in' | 'personal';
+  originalText?: string;
+  createdAt?: string;
   /** Existing image already stored with the recipe. */
   image?: string;
   /** Image explicitly supplied while importing or creating the recipe. */
@@ -265,7 +271,7 @@ export interface ActivityEvent {
 }
 
 export interface AppData {
-  schemaVersion: 3;
+  schemaVersion: 4;
   profile: UserProfile;
   inventory: FoodItem[];
   inventoryEvents: InventoryEvent[];

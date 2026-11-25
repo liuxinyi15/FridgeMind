@@ -78,10 +78,14 @@ describe('Shopping List', () => {
 describe('Add Food permission fallback', () => {
   it('explains image access before continuing and preserves manual entry', async () => {
     render(<MemoryRouter initialEntries={['/fridge/add']}><AppStateProvider><Routes><Route path="/fridge/add" element={<AddFoodPage />} /><Route path="/fridge" element={<div>Fridge</div>} /></Routes></AppStateProvider></MemoryRouter>);
-    await userEvent.click(screen.getByRole('button', { name: /Take a photo/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Scan groceries/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Take a photo' }));
     expect(screen.getByRole('dialog', { name: 'Open your camera?' })).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Enter manually' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Cancel' }).at(-1)!);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: /Enter manually/ }));
     expect(screen.getByLabelText('Food name')).toBeVisible();
+    await userEvent.type(screen.getByLabelText('Food name'), 'Tomatoes');
     expect(screen.getByRole('button', { name: 'Save to My Fridge' })).toBeEnabled();
   });
 });

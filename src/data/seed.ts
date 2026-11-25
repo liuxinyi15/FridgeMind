@@ -87,19 +87,59 @@ export const demoRecipes: Recipe[] = [
     ],
     steps: ['Chop vegetables.', 'Simmer in stock for 35 minutes.', 'Stir in spinach.'],
   },
+  {
+    id: 'recipe-mushroom-omelette', name: 'Mushroom Omelette', baseServings: 1, minutes: 12, source: 'recommended', tags: ['Very quick', 'Low ingredient'],
+    ingredients: [{ id: 'mo-1', name: 'Mushrooms', canonicalName: 'mushroom', quantity: 80, unit: 'g' }, { id: 'mo-2', name: 'Eggs', canonicalName: 'egg', quantity: 2, unit: 'item' }],
+    steps: ['Cook sliced mushrooms.', 'Add beaten eggs and fold when set.'],
+  },
+  {
+    id: 'recipe-eggs-on-toast', name: 'Eggs on Toast', baseServings: 1, minutes: 10, source: 'recommended', tags: ['10 minutes', 'Low ingredient'],
+    ingredients: [{ id: 'et-1', name: 'Eggs', canonicalName: 'egg', quantity: 2, unit: 'item' }, { id: 'et-2', name: 'Bread slices', canonicalName: 'bread slice', quantity: 2, unit: 'item' }],
+    steps: ['Toast the bread.', 'Cook the eggs your preferred way and serve.'],
+  },
+  {
+    id: 'recipe-spinach-fried-rice', name: 'Spinach Fried Rice', baseServings: 2, minutes: 18, source: 'recommended', tags: ['Quick', 'One pan'],
+    ingredients: [{ id: 'fr-1', name: 'Rice', canonicalName: 'rice', quantity: 160, unit: 'g' }, { id: 'fr-2', name: 'Spinach', canonicalName: 'spinach', quantity: 100, unit: 'g' }, { id: 'fr-3', name: 'Eggs', canonicalName: 'egg', quantity: 2, unit: 'item' }, { id: 'fr-4', name: 'Soy sauce', canonicalName: 'soy sauce', quantity: 2, unit: 'tbsp' }],
+    steps: ['Cook or reheat the rice.', 'Stir-fry with spinach and egg.', 'Season with soy sauce.'],
+  },
+  {
+    id: 'recipe-one-pan-chicken-rice', name: 'One-pan Chicken Rice', baseServings: 2, minutes: 30, source: 'recommended', tags: ['One pan', 'Leftovers friendly'],
+    ingredients: [{ id: 'cr-1', name: 'Chicken', canonicalName: 'chicken', quantity: 250, unit: 'g' }, { id: 'cr-2', name: 'Rice', canonicalName: 'rice', quantity: 160, unit: 'g' }, { id: 'cr-3', name: 'Onion', canonicalName: 'onion', quantity: 1, unit: 'item' }, { id: 'cr-4', name: 'Stock', canonicalName: 'stock', quantity: 400, unit: 'ml' }],
+    steps: ['Brown the chicken and onion.', 'Add rice and stock.', 'Cover and cook until the rice and chicken are done.'],
+  },
+  {
+    id: 'recipe-tomato-pasta', name: 'Simple Tomato Pasta', baseServings: 2, minutes: 20, source: 'recommended', tags: ['Quick', 'Vegetarian'],
+    ingredients: [{ id: 'tp-1', name: 'Pasta', canonicalName: 'pasta', quantity: 180, unit: 'g' }, { id: 'tp-2', name: 'Tomatoes', canonicalName: 'tomato', quantity: 4, unit: 'item' }, { id: 'tp-3', name: 'Onion', canonicalName: 'onion', quantity: 1, unit: 'item' }],
+    steps: ['Cook the pasta.', 'Soften onion and tomatoes.', 'Combine and season.'],
+  },
+  {
+    id: 'recipe-chicken-spinach-pasta', name: 'Chicken Spinach Pasta', baseServings: 2, minutes: 25, source: 'recommended', tags: ['Use soon', 'Leftovers friendly'],
+    ingredients: [{ id: 'cp-1', name: 'Chicken', canonicalName: 'chicken', quantity: 250, unit: 'g' }, { id: 'cp-2', name: 'Pasta', canonicalName: 'pasta', quantity: 180, unit: 'g' }, { id: 'cp-3', name: 'Spinach', canonicalName: 'spinach', quantity: 120, unit: 'g' }, { id: 'cp-4', name: 'Cream', canonicalName: 'cream', quantity: 100, unit: 'ml' }],
+    steps: ['Cook the pasta.', 'Cook chicken thoroughly.', 'Wilt spinach with cream and combine.'],
+  },
+  {
+    id: 'recipe-lentil-curry', name: 'Easy Lentil Curry', baseServings: 4, minutes: 35, source: 'recommended', tags: ['Freezer friendly', 'Vegetarian'],
+    ingredients: [{ id: 'lc-1', name: 'Lentils', canonicalName: 'lentil', quantity: 240, unit: 'g' }, { id: 'lc-2', name: 'Onion', canonicalName: 'onion', quantity: 1, unit: 'item' }, { id: 'lc-3', name: 'Tomatoes', canonicalName: 'tomato', quantity: 4, unit: 'item' }, { id: 'lc-4', name: 'Rice', canonicalName: 'rice', quantity: 240, unit: 'g' }],
+    steps: ['Soften the onion.', 'Simmer lentils and tomatoes with curry seasoning.', 'Serve with rice.'],
+  },
+  {
+    id: 'recipe-mushroom-rice', name: 'Mushroom Rice Bowl', baseServings: 1, minutes: 15, source: 'recommended', tags: ['15 minutes', 'One bowl'],
+    ingredients: [{ id: 'mr-1', name: 'Rice', canonicalName: 'rice', quantity: 80, unit: 'g' }, { id: 'mr-2', name: 'Mushrooms', canonicalName: 'mushroom', quantity: 120, unit: 'g' }, { id: 'mr-3', name: 'Soy sauce', canonicalName: 'soy sauce', quantity: 1, unit: 'tbsp' }],
+    steps: ['Cook the rice.', 'Brown the mushrooms.', 'Serve together with soy sauce.'],
+  },
 ];
 
 export function createSeedData(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     profile: {
       id: 'alex', name: 'Alex', onboardingComplete: false,
       routine: { cookingFrequency: '3-4', shoppingFrequency: '1-2', typicalServings: 2, weekdayLunchAtHome: false },
       notifications: { proactiveEnabled: true, mode: 'actionable', quietHoursEnabled: true, quietStart: '22:00', quietEnd: '08:00', useSoon: true, shopping: true, habitSuggestions: true },
     },
-    inventory: structuredClone(demoInventory),
+    inventory: structuredClone(demoInventory).map((item) => ({ ...item, batches: item.batches.map((batch) => ({ ...batch, source: 'seeded' as const })) })),
     inventoryEvents: [],
-    recipes: structuredClone(demoRecipes),
+    recipes: structuredClone(demoRecipes).map((recipe) => ({ ...recipe, ownership: 'built_in' as const })),
     savedRecipes: [
       { recipeId: 'recipe-mushroom-pasta', savedAt: '2026-11-12T18:00:00Z', preference: 1 },
       { recipeId: 'recipe-chicken-stir-fry', savedAt: '2026-11-15T18:00:00Z', preference: 0.8 },

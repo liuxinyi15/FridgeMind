@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react';
 
-export type IconName = 'home' | 'fridge' | 'recipes' | 'shopping' | 'back' | 'clock' | 'servings' | 'sparkle' | 'plus' | 'search' | 'filter' | 'camera' | 'gallery' | 'edit' | 'leaf' | 'alert' | 'check' | 'more' | 'snowflake' | 'calendar' | 'trash' | 'info' | 'chevron' | 'bell' | 'lock' | 'close' | 'minus';
+export type IconName = 'home' | 'fridge' | 'recipes' | 'shopping' | 'receipt' | 'back' | 'clock' | 'servings' | 'sparkle' | 'plus' | 'search' | 'filter' | 'camera' | 'gallery' | 'edit' | 'leaf' | 'alert' | 'check' | 'more' | 'snowflake' | 'calendar' | 'trash' | 'info' | 'chevron' | 'bell' | 'lock' | 'close' | 'minus';
 
 export function Icon({ name, size = 22, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -9,6 +9,7 @@ export function Icon({ name, size = 22, ...props }: SVGProps<SVGSVGElement> & { 
     fridge: <><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M5 9h14M8 5.5v1M8 12v3"/></>,
     recipes: <><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H20v17H7.5A2.5 2.5 0 0 0 5 21.5z"/><path d="M5 4.5v17M9 6h7M9 10h7"/></>,
     shopping: <><path d="M4 8h16l-1.4 13H5.4zM8 8a4 4 0 0 1 8 0"/><path d="m9 14 2 2 4-4"/></>,
+    receipt: <><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
     back: <><path d="m15 18-6-6 6-6"/></>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     servings: <><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 11a3 3 0 0 0 0-6M17 15a5 5 0 0 1 3.5 5"/></>,

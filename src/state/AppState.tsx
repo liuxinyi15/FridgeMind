@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { canonicalise, deductIngredient, matchRecipe, scaleIngredients } from '../domain/inventory';
 import { respondToHabit as applyHabitResponse } from '../domain/habit';
-import type { AppData, FoodItem, MealContextChoice, NotificationPreference, QuantityMode, Recipe, RecommendationFeedbackAction, ShoppingItem, Unit, UsabilityEventType, UsabilityTaskId } from '../domain/types';
+import type { AppData, FoodItem, ImportSource, MealContextChoice, NotificationPreference, QuantityMode, Recipe, RecommendationFeedbackAction, ShoppingItem, Unit, UsabilityEventType, UsabilityTaskId } from '../domain/types';
 import { taskCompletesFromEvent } from '../domain/usability';
 import { sanitiseParticipantId } from '../domain/usabilityExport';
 import { loadAppData, resetAppData, saveAppData } from '../data/repositories';
@@ -17,14 +17,21 @@ interface FoodDraft {
   dateType: 'use_by' | 'best_before' | 'unknown';
   storage: 'fridge' | 'freezer' | 'cupboard';
   note?: string;
+  source?: ImportSource;
+  category?: FoodItem['category'];
 }
+
+interface AddFoodOptions { source?: ImportSource; mergeExisting?: boolean; }
 
 interface AppActions {
   completeOnboarding: (changes: Partial<AppData['profile']['routine']> & { mode?: NotificationPreference['mode'] }) => void;
-  addFood: (draft: FoodDraft, demoRecognition?: boolean) => void;
+  addFood: (draft: FoodDraft, options?: boolean | AddFoodOptions) => void;
   correctFood: (foodId: string, amount: number | null, unit: Unit, mode?: QuantityMode, description?: string) => void;
   resolveIngredientAmount: (foodId: string, required: number, answer: 'enough' | 'not_enough' | 'none') => void;
   addRecipe: (recipe: Recipe) => void;
+  updateRecipe: (recipe: Recipe) => void;
+  deleteRecipe: (recipeId: string) => void;
+  toggleSavedRecipe: (recipeId: string) => void;
   addRecipeGapsToShopping: (recipe: Recipe, servings: number) => void;
   updateShopping: (id: string, change: Partial<ShoppingItem>) => void;
   reconcileShopping: (id: string, amount: number | null, unit: Unit) => void;
@@ -39,6 +46,7 @@ interface AppActions {
   confirmSubstitution: (recipeId: string, ingredientId: string, canonicalName: string) => void;
   consumeLeftover: (foodId: string) => void;
   handleFood: (foodId: string, outcome: 'used' | 'frozen' | 'still' | 'remove') => void;
+  useSomeFood: (foodId: string, amount: 'little' | 'half' | 'most') => void;
   respondToIntervention: (id: string, action: 'snoozed' | 'dismissed' | 'corrected' | 'accepted') => void;
   respondToHabit: (id: string, action: 'confirm' | 'not_now' | 'disable') => void;
   revokeRoutine: (id: string) => void;
@@ -64,6 +72,7 @@ const todayKey = () => {
   return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
 };
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const v02RecipeIds = new Set(['recipe-mushroom-pasta', 'recipe-chicken-stir-fry', 'recipe-spinach-pasta', 'recipe-rice-bowl', 'recipe-vegetable-soup']);
 
 function recordUsabilityEvent(current: AppData, type: UsabilityEventType, metadata?: Record<string, string | number | boolean>, path?: string): AppData {
   const sessionId = current.currentUsabilitySessionId;
@@ -93,6 +102,8 @@ function recordUsabilityEvent(current: AppData, type: UsabilityEventType, metada
 
 function createUsabilityFixture(taskId: UsabilityTaskId, current: AppData): AppData {
   const fixture = createSeedData();
+  fixture.recipes = fixture.recipes.filter((recipe) => v02RecipeIds.has(recipe.id));
+  fixture.savedRecipes = fixture.savedRecipes.filter((saved) => v02RecipeIds.has(saved.recipeId));
   fixture.profile.onboardingComplete = true;
   fixture.usabilitySessions = current.usabilitySessions;
   fixture.currentUsabilitySessionId = current.currentUsabilitySessionId;
@@ -158,7 +169,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         notifications: changes.mode ? { ...current.profile.notifications, mode: changes.mode, proactiveEnabled: changes.mode !== 'off' } : current.profile.notifications,
       },
     })),
-    addFood: (draft, demoRecognition = false) => setData((current) => {
+    addFood: (draft, rawOptions = false) => setData((current) => {
+      const options: AddFoodOptions = typeof rawOptions === 'boolean' ? { source: rawOptions ? 'photo' : 'manual' } : rawOptions;
+      const source = draft.source ?? options.source ?? 'manual';
       const canonicalName = canonicalise(draft.name);
       const itemId = id('food');
       const batchId = id('batch');
@@ -167,6 +180,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         name: draft.name,
         canonicalName,
         kind: 'ingredient',
+        category: draft.category,
         batches: [{
           id: batchId,
           physicalStock: draft.quantityMode === 'unknown' ? null : draft.quantity,
@@ -175,18 +189,30 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           relevantDate: draft.relevantDate,
           dateType: draft.dateType,
           storage: draft.storage,
-          confidence: draft.quantityMode === 'exact' && !demoRecognition ? 'confirmed' : draft.quantityMode === 'unknown' ? 'needs_confirmation' : 'estimated',
+          confidence: draft.quantityMode === 'exact' && rawOptions !== true ? 'confirmed' : draft.quantityMode === 'unknown' ? 'needs_confirmation' : 'estimated',
           quantityMode: draft.quantityMode,
           quantityDescription: draft.quantityDescription,
           state: 'fresh',
           note: draft.note,
+          source,
         }],
       };
       const existing = current.inventory.find((food) => food.kind !== 'leftover' && food.canonicalName === canonicalName);
-      const inventory = existing
-        ? current.inventory.map((food) => food.id === existing.id ? { ...food, batches: [...food.batches, item.batches[0]] } : food)
+      const inventory = existing && options.mergeExisting
+        ? current.inventory.map((food) => food.id !== existing.id ? food : {
+          ...food,
+          batches: food.batches.map((batch, index) => {
+            if (index) return batch;
+            const canAddExactly = batch.quantityMode === 'exact' && draft.quantityMode === 'exact' && batch.unit === draft.unit && batch.physicalStock !== null && draft.quantity !== null;
+            return canAddExactly
+              ? { ...batch, physicalStock: batch.physicalStock! + draft.quantity!, source }
+              : { ...batch, physicalStock: null, quantityMode: 'unknown' as const, confidence: 'needs_confirmation' as const, quantityDescription: 'combined stock; amount needs a check', source };
+          }),
+        })
+        : existing
+          ? current.inventory.map((food) => food.id === existing.id ? { ...food, batches: [...food.batches, item.batches[0]] } : food)
         : [...current.inventory, item];
-      const updated = { ...current, inventory, inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId: existing?.id ?? item.id, type: 'added' as const, amount: draft.quantity ?? undefined, unit: draft.unit, at: new Date().toISOString() }] };
+      const updated = { ...current, inventory, inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId: existing?.id ?? item.id, type: options.mergeExisting ? 'merged' as const : 'added' as const, amount: draft.quantity ?? undefined, unit: draft.unit, at: new Date().toISOString(), note: `Added from ${source}` }] };
       const boughtDuplicateAttempt = current.shopping.some((shoppingItem) => shoppingItem.bought && !shoppingItem.addedToFridge && shoppingItem.canonicalName === canonicalName);
       return boughtDuplicateAttempt ? recordUsabilityEvent(updated, 'duplicate_fridge_attempt', { matchedPurchasedItem: true }) : updated;
     }),
@@ -223,7 +249,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       };
       return recordUsabilityEvent(updated, 'uncertainty_resolved', { answer, required });
     }),
-    addRecipe: (recipe) => setData((current) => ({ ...current, recipes: [...current.recipes, recipe] })),
+    addRecipe: (recipe) => setData((current) => ({ ...current, recipes: [...current.recipes, { ...recipe, ownership: recipe.ownership ?? 'personal', createdAt: recipe.createdAt ?? new Date().toISOString() }] })),
+    updateRecipe: (recipe) => setData((current) => ({ ...current, recipes: current.recipes.map((item) => item.id === recipe.id && item.ownership === 'personal' ? { ...recipe, ownership: 'personal' } : item) })),
+    deleteRecipe: (recipeId) => setData((current) => {
+      const recipe = current.recipes.find((item) => item.id === recipeId);
+      if (!recipe || recipe.ownership !== 'personal') return current;
+      return { ...current, recipes: current.recipes.filter((item) => item.id !== recipeId), savedRecipes: current.savedRecipes.filter((item) => item.recipeId !== recipeId) };
+    }),
+    toggleSavedRecipe: (recipeId) => setData((current) => {
+      const existing = current.savedRecipes.find((item) => item.recipeId === recipeId);
+      return { ...current, savedRecipes: existing ? current.savedRecipes.filter((item) => item.recipeId !== recipeId) : [...current.savedRecipes, { recipeId, savedAt: new Date().toISOString(), preference: 1 }] };
+    }),
     addRecipeGapsToShopping: (recipe, servings) => setData((current) => {
       const gaps = matchRecipe(recipe, servings, current.inventory, current.substitutions).filter((match) => match.status === 'missing' || match.status === 'partial');
       let shopping = [...current.shopping];
@@ -273,15 +309,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           if (item.id !== existing.id) return item;
           const compatible = item.batches.findIndex((batch) => batch.unit === unit && batch.quantityMode === 'exact' && amount !== null);
           if (compatible >= 0) return { ...item, batches: item.batches.map((batch, index) => index === compatible ? { ...batch, physicalStock: Math.max(0, (batch.physicalStock ?? 0) + (amount ?? 0)) } : batch) };
-          return { ...item, batches: [...item.batches, { id: id('batch'), physicalStock: amount, reservedStock: 0, unit, dateType: 'unknown', storage: 'fridge', confidence: amount === null ? 'needs_confirmation' : 'confirmed', quantityMode: amount === null ? 'unknown' : 'exact', quantityDescription: amount === null ? 'some purchased' : undefined, state: 'fresh' }] };
+          return { ...item, batches: [...item.batches, { id: id('batch'), physicalStock: amount, reservedStock: 0, unit, dateType: 'unknown', storage: 'fridge', confidence: amount === null ? 'needs_confirmation' : 'confirmed', quantityMode: amount === null ? 'unknown' : 'exact', quantityDescription: amount === null ? 'some purchased' : undefined, state: 'fresh', source: 'shopping' }] };
         });
       } else {
         inventory = [...current.inventory, {
           id: id('food'), name: shoppingItem.ingredientName, canonicalName: shoppingItem.canonicalName, kind: 'ingredient',
-          batches: [{ id: id('batch'), physicalStock: amount, reservedStock: 0, unit, dateType: 'unknown', storage: 'fridge', confidence: amount === null ? 'needs_confirmation' : 'confirmed', quantityMode: amount === null ? 'unknown' : 'exact', quantityDescription: amount === null ? 'some purchased' : undefined, state: 'fresh' }],
+          batches: [{ id: id('batch'), physicalStock: amount, reservedStock: 0, unit, dateType: 'unknown', storage: 'fridge', confidence: amount === null ? 'needs_confirmation' : 'confirmed', quantityMode: amount === null ? 'unknown' : 'exact', quantityDescription: amount === null ? 'some purchased' : undefined, state: 'fresh', source: 'shopping' }],
         }];
       }
-      const updated: AppData = { ...current, inventory, shopping: current.shopping.map((item) => item.id === shoppingId ? { ...item, bought: true, addedToFridge: true } : item) };
+      const updated: AppData = { ...current, inventory, shopping: current.shopping.map((item) => item.id === shoppingId ? { ...item, bought: true, addedToFridge: true } : item), inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId: existing?.id ?? inventory.at(-1)!.id, type: 'added', amount: amount ?? undefined, unit, at: new Date().toISOString(), note: 'Added from shopping' }] };
       return recordUsabilityEvent(updated, 'shopping_item_reconciled', { amountUnknown: amount === null, amountEdited: amount !== null && amount !== shoppingItem.suggestedPurchaseQuantity });
     }),
     removeShopping: (shoppingId) => setData((current) => ({ ...current, shopping: current.shopping.filter((item) => item.id !== shoppingId) })),
@@ -290,16 +326,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     completeCooking: (recipe, servings, factors, eatNow) => setData((current) => {
       const ingredients = scaleIngredients(recipe, servings);
       let inventory = current.inventory;
+      const cookingEvents: AppData['inventoryEvents'] = [];
       ingredients.forEach((ingredient) => {
         const factor = factors[ingredient.id] ?? 1;
         if (factor <= 0) return;
         const canonicalName = current.substitutions[`${recipe.id}:${ingredient.id}`] ?? ingredient.canonicalName;
+        const matchedFood = inventory.find((item) => item.canonicalName === canonicalName);
+        if (matchedFood) cookingEvents.push({ id: id('event'), foodId: matchedFood.id, type: 'consumed', amount: ingredient.quantity * factor, unit: ingredient.unit, at: new Date().toISOString(), note: `Used in ${recipe.name}` });
         inventory = inventory.map((item) => item.canonicalName === canonicalName ? deductIngredient(item, ingredient.quantity * factor, ingredient.unit) : item);
       });
       inventory = inventory.filter((item) => item.kind === 'leftover' || item.batches.some((batch) => batch.physicalStock === null || batch.quantityMode !== 'exact' || (batch.physicalStock ?? 0) > 0));
       const leftoverPortions = Math.max(0, servings - eatNow);
       if (leftoverPortions) {
-        inventory = [...inventory, {
+        const leftover: FoodItem = {
           id: id('leftover'),
           name: recipe.name,
           canonicalName: `leftover:${recipe.id}`,
@@ -307,8 +346,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           portions: leftoverPortions,
           cookedAt: new Date().toISOString(),
           sourceRecipeId: recipe.id,
-          batches: [{ id: id('batch'), physicalStock: leftoverPortions, reservedStock: 0, unit: 'portion', dateType: 'unknown', storage: 'fridge', confidence: 'confirmed', quantityMode: 'exact', state: 'fresh', note: 'Stored today' }],
-        }];
+          batches: [{ id: id('batch'), physicalStock: leftoverPortions, reservedStock: 0, unit: 'portion', dateType: 'unknown', storage: 'fridge', confidence: 'confirmed', quantityMode: 'exact', state: 'fresh', note: 'Stored today', source: 'cooking' }],
+        };
+        inventory = [...inventory, leftover];
+        cookingEvents.push({ id: id('event'), foodId: leftover.id, type: 'leftover_created', amount: leftoverPortions, unit: 'portion', at: new Date().toISOString(), note: `Converted from ${recipe.name}` });
       }
       let updated: AppData = {
         ...current,
@@ -316,6 +357,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         cookingSession: current.cookingSession ? { ...current.cookingSession, status: 'completed', completedAt: new Date().toISOString() } : undefined,
         mealPlans: [...current.mealPlans, { id: id('meal'), recipeId: recipe.id, servings, status: 'cooked' }],
         activity: [...current.activity, { id: id('activity'), type: 'cooking_completed', at: new Date().toISOString(), metadata: { recipe: recipe.name, recipeId: recipe.id, servings, leftoverPortions } }],
+        inventoryEvents: [...current.inventoryEvents, ...cookingEvents],
       };
       updated = recordUsabilityEvent(updated, 'cooking_completed', { recipeId: recipe.id, servings });
       if (leftoverPortions) updated = recordUsabilityEvent(updated, 'leftover_saved', { recipeId: recipe.id, portions: leftoverPortions });
@@ -340,12 +382,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }, 'leftover_selected', { foodId });
     }),
     handleFood: (foodId, outcome) => setData((current) => {
+      const food = current.inventory.find((item) => item.id === foodId);
+      if (!food || outcome === 'still') return current;
       const inventory = outcome === 'used' || outcome === 'remove'
         ? current.inventory.filter((item) => item.id !== foodId)
         : current.inventory.map((item) => item.id !== foodId ? item : outcome === 'frozen'
           ? { ...item, batches: item.batches.map((batch) => ({ ...batch, storage: 'freezer' as const, state: 'frozen' as const })) }
           : item);
-      return { ...current, inventory };
+      const eventType = outcome === 'frozen' ? 'frozen' as const : outcome === 'used' ? 'finished' as const : 'discarded' as const;
+      return { ...current, inventory, inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId, type: eventType, at: new Date().toISOString() }] };
+    }),
+    useSomeFood: (foodId, amount) => setData((current) => {
+      const factor = amount === 'little' ? .85 : amount === 'half' ? .5 : .2;
+      const descriptions = { little: 'most of it left', half: 'about half left', most: 'a little left' };
+      return {
+        ...current,
+        inventory: current.inventory.map((item) => item.id !== foodId ? item : {
+          ...item,
+          batches: item.batches.map((batch, index) => index ? batch : batch.quantityMode === 'exact' && batch.physicalStock !== null
+            ? { ...batch, physicalStock: Math.max(0, Number((batch.physicalStock * factor).toFixed(2))) }
+            : { ...batch, quantityMode: batch.quantityMode, confidence: batch.confidence, quantityDescription: descriptions[amount] }),
+        }),
+        inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId, type: 'partially_used' as const, at: new Date().toISOString(), note: amount }],
+      };
     }),
     respondToIntervention: (interventionId, action) => setData((current) => ({
       ...current,
@@ -367,8 +426,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     updateNotifications: (change) => setData((current) => ({ ...current, profile: { ...current.profile, notifications: { ...current.profile.notifications, ...change } } })),
     setResearchScenario: (researchScenario) => setData((current) => {
       const fixture = createSeedData();
+      if (!researchScenario.startsWith('V3-')) {
+        fixture.recipes = fixture.recipes.filter((recipe) => v02RecipeIds.has(recipe.id));
+        fixture.savedRecipes = fixture.savedRecipes.filter((saved) => v02RecipeIds.has(saved.recipeId));
+      }
       fixture.profile.onboardingComplete = current.profile.onboardingComplete;
       fixture.usabilitySessions = current.usabilitySessions;
+      fixture.participantStudySessionId = current.participantStudySessionId;
       fixture.researchScenario = researchScenario;
       if (researchScenario === 'A' || researchScenario === 'E') {
         const mushrooms = fixture.inventory.find((item) => item.canonicalName === 'mushroom')!;
@@ -378,7 +442,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
       if (researchScenario === 'C') fixture.mealContexts = [{ date: todayKey(), choice: 'cooking' }];
       if (researchScenario === 'D') fixture.mealContexts = [{ date: todayKey(), choice: 'eating_out' }];
-      if (researchScenario === 'G') fixture.shopping = [{
+      if (researchScenario === 'G' || researchScenario === 'V3-F') fixture.shopping = [{
         id: 'research-purchased-mushrooms',
         ingredientName: 'Mushrooms',
         canonicalName: 'mushroom',
