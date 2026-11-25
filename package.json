@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "test:ocr:e2e": "playwright test e2e/recipe-ocr-quality.spec.ts e2e/v041-ocr.spec.ts --workers=1",
     "test:watch": "vitest",
     "screenshots": "playwright test e2e/screenshots-v0.1.1.spec.ts",
     "screenshots:v0.1": "playwright test e2e/screenshots.spec.ts",

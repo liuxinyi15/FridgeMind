@@ -20,6 +20,6 @@ export class RecipeImportErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.failed) return this.props.children;
-    return <div className="page-stack narrow-page recipe-import-page"><section className="empty-state"><h1>Something went wrong while reading this image.</h1><p>FridgeMind is still available. You can retry or add the recipe another way.</p><div className="button-row"><button className="button primary" onClick={() => this.setState({ failed: false })}>Try again</button><Link className="button secondary" to="/recipes/import?recovery=text">Paste recipe text</Link><Link className="button ghost" to="/recipes">Back to Recipes</Link></div></section></div>;
+    return <div className="page-stack narrow-page recipe-import-page"><section className="empty-state"><h1>Something went wrong while reading this recipe.</h1><p>Your image wasn’t saved. You can try again, paste the recipe text, or return to Recipes.</p><div className="button-row"><button className="button primary" onClick={() => this.setState({ failed: false })}>Try again</button><Link className="button secondary" to="/recipes/import?recovery=text">Paste recipe text</Link><Link className="button ghost" to="/recipes">Back to Recipes</Link></div></section></div>;
   }
 }

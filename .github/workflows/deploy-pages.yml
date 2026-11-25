@@ -26,9 +26,16 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm build
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run unit and integration tests
+        run: pnpm test
+      - name: Build production app
+        run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run OCR browser regressions
+        run: pnpm test:ocr:e2e
       - name: Add SPA fallback
         run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5

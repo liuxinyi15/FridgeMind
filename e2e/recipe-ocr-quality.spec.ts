@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1];
+const pagesBase = process.env.GITHUB_ACTIONS && repositoryName && !repositoryName.endsWith('.github.io') ? `/${repositoryName}` : '';
+const appRoute = (path: string) => `${pagesBase}${path}`;
+
 async function rasterRecipe(page: Page, name: string, width: number, height: number, body: string) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#fffdf8"/>${body}</svg>`;
   const base64 = await page.evaluate(async ({ svg, width, height }) => {
@@ -14,13 +18,13 @@ async function rasterRecipe(page: Page, name: string, width: number, height: num
 }
 
 async function scan(page: Page, file: Awaited<ReturnType<typeof rasterRecipe>>) {
-  await page.goto('/recipes/import');
+  await page.goto(appRoute('/recipes/import'));
   await page.getByLabel('Choose recipe image').setInputFiles(file);
 }
 
 test('recipe OCR handles varied document layouts and fails safely without recipe text', async ({ page }) => {
   test.setTimeout(180_000);
-  await page.goto('/');
+  await page.goto(appRoute('/'));
   await page.getByRole('button', { name: 'Skip' }).click();
 
   await scan(page, await rasterRecipe(page, 'illustrated-recipe', 1200, 900, `
@@ -60,7 +64,7 @@ test('a realistic 1080 × 5000 recipe screenshot stays rendered and resolves saf
   page.on('pageerror', (error) => pageErrors.push(error));
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
 
-  await page.goto('/');
+  await page.goto(appRoute('/'));
   await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
   const tallRecipe = await rasterRecipe(page, 'tall-weeknight-recipe', 1080, 5000, `
     <g font-family="Arial" fill="#18342c">
@@ -96,7 +100,7 @@ test('a realistic 1080 × 5000 recipe screenshot stays rendered and resolves saf
       <path d="M170 4330h730" stroke="#c8a978" stroke-width="12"/>
     </g>`);
 
-  await page.goto('/settings/research/usability');
+  await page.goto(appRoute('/settings/research/usability'));
   await page.getByRole('button', { name: 'Start new session' }).click();
   const task = page.getByRole('article').filter({ hasText: 'Personal recipe import' });
   await task.getByRole('button', { name: 'Launch task' }).click();

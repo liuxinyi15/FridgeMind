@@ -2,12 +2,15 @@ import { expect, test } from '@playwright/test';
 import path from 'node:path';
 
 const studyImage = (name: string) => path.resolve('public/study', name);
+const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1];
+const pagesBase = process.env.GITHUB_ACTIONS && repositoryName && !repositoryName.endsWith('.github.io') ? `/${repositoryName}` : '';
+const appRoute = (route: string) => `${pagesBase}${route}`;
 
 test('study recipe image runs through real browser OCR into editable personal recipe review', async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto('/');
+  await page.goto(appRoute('/'));
   await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
-  await page.goto('/settings/research/usability');
+  await page.goto(appRoute('/settings/research/usability'));
   await page.getByRole('button', { name: 'Start new session' }).click();
   const task = page.getByRole('article').filter({ hasText: 'Personal recipe import' });
   await task.getByRole('button', { name: 'Launch task' }).click();
@@ -52,7 +55,7 @@ test('study recipe image runs through real browser OCR into editable personal re
 
 test('real receipt OCR proposes groceries and reconciles a shopping match', async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto('/');
+  await page.goto(appRoute('/'));
   await page.getByRole('button', { name: 'Skip' }).click();
   await page.evaluate(() => {
     const key = 'fridgemind:v0.1:data';
@@ -61,7 +64,7 @@ test('real receipt OCR proposes groceries and reconciles a shopping match', asyn
     localStorage.setItem(key, JSON.stringify(data));
   });
   await page.reload();
-  await page.goto('/fridge/add');
+  await page.goto(appRoute('/fridge/add'));
   await page.getByRole('button', { name: /Scan receipt/ }).click();
   await page.getByLabel('Choose image to scan').setInputFiles(studyImage('receipt.png'));
   await expect(page.getByRole('heading', { name: 'Review receipt items' })).toBeVisible({ timeout: 60_000 });
@@ -75,9 +78,9 @@ test('real receipt OCR proposes groceries and reconciles a shopping match', asyn
 
 test('real package OCR proposes the printed product name and weight', async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto('/');
+  await page.goto(appRoute('/'));
   await page.getByRole('button', { name: 'Skip' }).click();
-  await page.goto('/fridge/add');
+  await page.goto(appRoute('/fridge/add'));
   await page.getByRole('button', { name: /Scan package/ }).click();
   await page.getByLabel('Choose image to scan').setInputFiles(studyImage('package.png'));
   await expect(page.getByRole('heading', { name: 'Review package' })).toBeVisible({ timeout: 60_000 });
