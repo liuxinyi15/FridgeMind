@@ -7,6 +7,8 @@ import { foodCamera, type CameraPurpose } from '../platform/camera/CameraAdapter
 import { useAppState } from '../state/AppState';
 import { Icon } from '../components/Icon';
 import { showsResearchUi } from '../domain/usability';
+import { nextPaint, OcrProcessingError, type OcrFailureCode } from '../platform/ocr/prepareOcrImage';
+import type { GenericOcrResult } from '../platform/ocr/browserOcr';
 
 type CaptureFlow = 'quick' | 'grocery' | 'receipt' | 'package';
 type View = 'choices' | 'quick' | 'capture' | 'processing' | 'review' | 'manual' | 'receipt-text' | 'failure';
@@ -30,14 +32,18 @@ export function AddFoodPage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const previewUrl = useRef<string | undefined>(undefined);
   const abortOcr = useRef<AbortController | undefined>(undefined);
-  const [view, setView] = useState<View>('choices');
+  const [view, setView] = useState<View>(params.get('recovery') === 'quick' ? 'quick' : 'choices');
   const [flow, setFlow] = useState<CaptureFlow>('quick');
   const [permissionPurpose, setPermissionPurpose] = useState<CameraPurpose | null>(null);
   const [working, setWorking] = useState(false);
   const [preview, setPreview] = useState<string>();
   const [progress, setProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState('preparing_image');
   const [quickText, setQuickText] = useState('');
   const [receiptText, setReceiptText] = useState('');
+  const [ocrResult, setOcrResult] = useState<GenericOcrResult>();
+  const [ocrFailure, setOcrFailure] = useState<OcrFailureCode>();
+  const [failureReason, setFailureReason] = useState<'empty' | 'unparsed' | 'runtime'>('empty');
   const [candidates, setCandidates] = useState<FoodCandidate[]>([]);
   const [manual, setManual] = useState(() => makeCandidate('manual', '', 'exact', '1', '', 'item', 'fridge'));
   const researchUi = showsResearchUi(data);
@@ -69,26 +75,48 @@ export function AddFoodPage() {
   const parseReceipt = () => {
     const parsed = parseReceiptCandidates(receiptText);
     setFlow('receipt'); setCandidates(parsed.map((item, index) => fromParsed(item, index, 'receipt')));
+    if (!parsed.length && receiptText.trim()) setFailureReason('unparsed');
     setView(parsed.length ? 'review' : 'failure');
   };
   const runOcr = async (image: File | string) => {
     abortOcr.current?.abort();
     const controller = new AbortController(); abortOcr.current = controller;
-    setView('processing'); setProgress(0); actions.logUsabilityEvent('ocr_started', { flow });
+    setOcrResult(undefined); setOcrFailure(undefined); setFailureReason('empty');
+    setProgressStatus('preparing_image'); setView('processing'); setProgress(1); actions.logUsabilityEvent('ocr_started', { flow });
     if (flow === 'receipt') actions.logUsabilityEvent('receipt_ocr_used');
     if (flow === 'package') actions.logUsabilityEvent('package_ocr_used');
     try {
+      await nextPaint();
+      if (controller.signal.aborted) throw new OcrProcessingError('cancelled');
       const { recogniseImageText } = await import('../platform/ocr/browserOcr');
-      const raw = await recogniseImageText(image, { signal: controller.signal, onProgress: ({ progress: next }) => setProgress(Math.round(next * 100)) });
-      if (!raw.trim()) { actions.logUsabilityEvent('ocr_returned_empty', { flow }); setView('failure'); return; }
-      actions.logUsabilityEvent('ocr_completed', { flow, characters: raw.length });
+      const result = await recogniseImageText(image, {
+        mode: flow === 'receipt' ? 'receipt' : 'package',
+        signal: controller.signal,
+        acceptText: (text) => flow === 'receipt' ? parseReceiptCandidates(text).length > 0 : Boolean(parsePackageText(text)),
+        onProgress: ({ progress: next, status }) => {
+          setProgress((current) => Math.max(current, Math.min(99, Math.round(next * 100))));
+          setProgressStatus(status);
+        },
+      });
+      const raw = result.text;
+      setOcrResult(result);
+      if (flow === 'receipt') setReceiptText(raw);
+      if (!raw.trim()) { setFailureReason('empty'); actions.logUsabilityEvent('ocr_returned_empty', { flow }); setView('failure'); return; }
+      actions.logUsabilityEvent('ocr_completed', {
+        flow, characters: raw.length, ocrPass: result.pass,
+        ...(researchUi ? { inputWidth: result.runtime.inputWidth, inputHeight: result.runtime.inputHeight, scaledWidth: result.runtime.scaledWidth, scaledHeight: result.runtime.scaledHeight, tiled: result.runtime.tiled, tileCount: result.runtime.tileCount, maxTilePixels: result.runtime.maxTilePixels, preprocessingMs: result.runtime.preprocessingMs, recognitionMs: result.runtime.recognitionMs } : {}),
+      });
       const parsed = flow === 'receipt' ? parseReceiptCandidates(raw) : [parsePackageText(raw)].filter((item): item is ParsedFoodText => Boolean(item));
       setCandidates(parsed.map((item, index) => fromParsed(item, index, flow)));
-      if (!parsed.length) { actions.logUsabilityEvent('ocr_returned_empty', { flow, textFound: true }); setView('failure'); return; }
+      if (!parsed.length) { setFailureReason('unparsed'); actions.logUsabilityEvent('ocr_returned_empty', { flow, textFound: true }); setView('failure'); return; }
       actions.logUsabilityEvent('ocr_parse_reviewed', { flow, count: parsed.length });
       setView('review');
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') setView('failure');
+      const code = error instanceof OcrProcessingError ? error.code : (error as Error).name === 'AbortError' ? 'cancelled' : 'recognition_failed';
+      if (code === 'cancelled') return;
+      setOcrFailure(code); setFailureReason('runtime');
+      actions.logUsabilityEvent('ocr_returned_empty', { flow, reason: 'runtime_failure', ...(researchUi ? { failureCode: code } : {}) });
+      setView('failure');
     }
   };
   const handleFile = (file?: File) => { if (file) { showPreview(file); void runOcr(file); } };
@@ -132,12 +160,14 @@ export function AddFoodPage() {
     {view === 'quick' && <section className="form-card quick-add-card"><label>Food names<textarea autoFocus rows={7} value={quickText} onChange={(event) => setQuickText(event.target.value)} placeholder={'spinach, mushrooms, chicken, pasta\n\nor\n\nspinach 200g\n2 onions\nmilk 1L'} /></label><p className="form-hint">Separate foods with commas, semicolons or new lines. Leave amounts out if you do not know them.</p><div className="button-row"><button className="button secondary" onClick={() => setView('choices')}>Back</button><button className="button primary" onClick={parseQuick} disabled={!quickText.trim()}>Review foods</button></div></section>}
     {view === 'capture' && <section className="capture-card"><div className="capture-illustration"><Icon name={flow === 'receipt' ? 'receipt' : 'camera'} size={34} /></div><h2>{flow === 'receipt' ? 'Scan a receipt' : 'Scan a package label'}</h2><p>Use a clear, well-lit image with readable text. Image text is processed on this device.</p><div className="button-row"><button className="button primary" onClick={() => setPermissionPurpose('camera')}>Take a photo</button><button className="button secondary" onClick={chooseFile}>Choose image</button><button className="button ghost" onClick={() => setView('choices')}>Cancel</button></div>{flow === 'receipt' && <button className="text-button" onClick={() => { actions.logUsabilityEvent('ocr_fallback_used', { flow: 'receipt' }); setView('receipt-text'); }}>Paste receipt text instead</button>}</section>}
     {view === 'receipt-text' && <section className="form-card"><label>Receipt text<textarea rows={11} value={receiptText} onChange={(event) => setReceiptText(event.target.value)} placeholder={'TESCO\nMUSHROOMS 250G\nBABY SPINACH\nCHICKEN BREAST 500G\nPENNE PASTA 500G'} /></label><p className="form-hint">We only propose recognised product names and printed amounts. Check everything before adding it.</p><div className="button-row"><button className="button secondary" onClick={() => setView('choices')}>Back</button><button className="button primary" onClick={parseReceipt} disabled={!receiptText.trim()}>Review items</button></div></section>}
-    {view === 'processing' && <section className="processing-card" aria-live="polite"><span className="processing-spinner" aria-hidden="true" /><h2>{flow === 'receipt' ? 'Reading receipt…' : 'Reading package…'}</h2><p>{progress ? `${progress}% · ` : ''}This can take a few seconds. The app remains on this screen.</p><button className="button secondary" onClick={() => { abortOcr.current?.abort(); setView('capture'); }}>Cancel</button></section>}
-    {view === 'failure' && <section className="empty-state"><Icon name="info" size={30} /><h2>We couldn’t read enough text from this image.</h2><p>Try a sharper image, paste receipt text, or add the food another way.</p><div className="button-row">{flow === 'receipt' && <button className="button primary" onClick={() => { actions.logUsabilityEvent('ocr_fallback_used', { flow }); setView('receipt-text'); }}>Paste receipt text</button>}<button className="button secondary" onClick={() => setView('manual')}>Enter manually</button><button className="button ghost" onClick={() => setView('choices')}>Try another image</button></div></section>}
+    {view === 'processing' && <section className="processing-card" aria-live="polite"><span className="processing-spinner" aria-hidden="true" /><h2>{progressStatus === 'preparing_image' ? 'Preparing image…' : progressStatus === 'checking_items' ? 'Checking items…' : progressStatus === 'checking_product' ? 'Checking product…' : flow === 'receipt' ? 'Reading receipt…' : 'Reading package…'}</h2><p>{progress}% · This can take a few seconds. The app remains on this screen.</p><button className="button secondary" onClick={() => { abortOcr.current?.abort(); setView('capture'); }}>Cancel</button></section>}
+    {view === 'failure' && <section className="empty-state"><Icon name="info" size={30} /><h2>{flow === 'receipt' && failureReason === 'unparsed' ? 'We found text, but couldn’t identify grocery items.' : flow === 'package' && failureReason === 'unparsed' ? 'We couldn’t identify a clear product name.' : 'We couldn’t read enough text from this image.'}</h2><p>{flow === 'receipt' && failureReason === 'unparsed' ? 'Review what we extracted, try another image, or paste the receipt text.' : 'Try a sharper image or add the food another way.'}</p><div className="button-row">{flow === 'receipt' && receiptText.trim() && <button className="button primary" onClick={() => { actions.logUsabilityEvent('ocr_fallback_used', { flow, fallback: 'extracted_text' }); setView('receipt-text'); }}>Review extracted text</button>}{flow === 'receipt' && <button className="button secondary" onClick={() => { actions.logUsabilityEvent('ocr_fallback_used', { flow }); setReceiptText(''); setView('receipt-text'); }}>Paste receipt text</button>}<button className="button secondary" onClick={() => setView('manual')}>Enter manually</button><button className="button ghost" onClick={() => setView('capture')}>Try another image</button></div></section>}
     {view === 'review' && <section className="batch-review">{isResearchFixture && <p className="fixture-label">Research Mode · simulated recognition fixture</p>}<div className="batch-review-toolbar"><div><strong>{candidates.length} {candidates.length === 1 ? 'item' : 'items'}</strong><span>Check before saving</span></div><div><button className="text-button" onClick={() => setCandidates((items) => [...items, makeCandidate(`added-${Date.now()}`, '', 'unknown', '', 'Amount unknown', 'item', 'fridge')])}>Add item</button>{candidates.length > 1 && <button className="text-button" onClick={() => setCandidates((items) => items.map((item) => ({ ...item, selected: false })))}>Deselect</button>}</div></div>{preview && <img className="batch-preview" src={preview} alt="Scanned source preview" />}<div className="import-candidate-list">{candidates.map((item, index) => <CandidateCard key={item.id} item={item} index={index} flow={flow} inventory={data.inventory} shopping={data.shopping} update={update} remove={() => setCandidates((items) => items.filter((entry) => entry.id !== item.id))} />)}</div><div className="sticky-actions import-sticky"><button className="button secondary" onClick={() => setView('choices')}>Cancel</button><button className="button primary" disabled={!selected.length} onClick={saveBatch}>Add {selected.length} {selected.length === 1 ? 'food' : 'foods'}</button></div></section>}
     {view === 'manual' && <section className="form-card"><CandidateForm item={manual} update={(change) => setManual({ ...manual, ...change })} />{manualDuplicate && <fieldset className="duplicate-choice"><legend>You already have {manualDuplicate.name.toLowerCase()}</legend><label><input type="radio" name="manual-duplicate" checked={manual.mergeChoice === 'new'} onChange={() => setManual({ ...manual, mergeChoice: 'new' })} /> Add as new purchase</label><label><input type="radio" name="manual-duplicate" checked={manual.mergeChoice === 'merge'} onChange={() => setManual({ ...manual, mergeChoice: 'merge' })} /> Merge with existing stock</label></fieldset>}<div className="button-row mobile-form-actions"><button className="button secondary" onClick={() => setView('choices')}>Choose another method</button><button className="button primary" onClick={saveManual} disabled={!manual.name.trim()}>Save to My Fridge</button></div></section>}
+    {researchUi && ocrResult && <details className="concept-card"><summary>OCR diagnostics</summary><p>Input {ocrResult.runtime.inputWidth}×{ocrResult.runtime.inputHeight} · scaled {ocrResult.runtime.scaledWidth}×{ocrResult.runtime.scaledHeight} · max tile {ocrResult.runtime.maxTilePixels.toLocaleString()} pixels · tiled {ocrResult.runtime.tiled ? `yes (${ocrResult.runtime.tileCount})` : 'no'} · pass {ocrResult.pass} · preprocessing {ocrResult.runtime.preprocessingMs}ms · OCR {ocrResult.runtime.recognitionMs}ms</p></details>}
+    {researchUi && ocrFailure && <p className="form-hint">OCR diagnostic: {ocrFailure}</p>}
     <details className="concept-card"><summary>Image privacy</summary><p>OCR runs locally in your browser using Tesseract.js. Images are not uploaded, and scan images are not permanently stored.</p></details>
-    <input ref={fileInput} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => handleFile(event.target.files?.[0])} aria-label="Choose image to scan" />
+    <input ref={fileInput} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => { handleFile(event.target.files?.[0]); event.target.value = ''; }} aria-label="Choose image to scan" />
     {permissionPurpose && <div className="sheet-backdrop" role="presentation" onClick={() => setPermissionPurpose(null)}><section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="camera-permission-title" onClick={(event) => event.stopPropagation()}><div className="sheet-handle" /><h2 id="camera-permission-title">Open your camera?</h2><p>Your image is processed on this device to prepare an editable suggestion.</p><div className="sheet-actions"><button className="button ghost" onClick={() => setPermissionPurpose(null)}>Cancel</button><button className="button secondary" onClick={() => { setPermissionPurpose(null); chooseFile(); }}>Choose image instead</button><button className="button primary" onClick={continueCamera} disabled={working}>{working ? 'Opening…' : 'Continue'}</button></div></section></div>}
   </div>;
 }

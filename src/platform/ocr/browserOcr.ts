@@ -11,26 +11,129 @@ export interface OcrOptions {
   signal?: AbortSignal;
 }
 
+export interface GenericOcrRuntime {
+  inputWidth: number;
+  inputHeight: number;
+  scaledWidth: number;
+  scaledHeight: number;
+  maxTilePixels: number;
+  tiled: boolean;
+  tileCount: number;
+  preprocessingMs: number;
+  recognitionMs: number;
+}
+
+export interface GenericOcrResult {
+  text: string;
+  pass: 'primary' | 'contrast';
+  runtime: GenericOcrRuntime;
+}
+
+export interface GenericOcrOptions extends OcrOptions {
+  mode?: 'receipt' | 'package';
+  acceptText?: (text: string) => boolean;
+}
+
 /**
  * Local browser OCR boundary. Tesseract.js and its worker/language assets are
  * loaded only when this function is called; image pixels are not sent to an API.
  */
-export async function recogniseImageText(image: File | Blob | string, options: OcrOptions = {}) {
-  const { createWorker } = await import('tesseract.js');
-  if (options.signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError');
-  const worker = await createWorker('eng', undefined, {
-    logger: (message) => options.onProgress?.({ status: message.status, progress: message.progress }),
-  });
-  const abort = () => { void worker.terminate(); };
-  options.signal?.addEventListener('abort', abort, { once: true });
+export async function recogniseImageText(image: File | Blob | string, options: GenericOcrOptions = {}): Promise<GenericOcrResult> {
+  options.onProgress?.({ status: 'preparing_image', progress: .01 });
+  if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+  const loadStartedAt = performance.now();
+  const source = await loadOcrSource(image);
+  let preprocessingMs = performance.now() - loadStartedAt;
+  let tesseract: typeof import('tesseract.js');
+  try { tesseract = await import('tesseract.js'); } catch (error) {
+    source.close(); throw new OcrProcessingError('worker_failed', undefined, { cause: error });
+  }
+  const { createWorker, PSM } = tesseract;
+  let progressBase = .05;
+  let progressWeight = .03;
+  let progressStatus = options.mode === 'receipt' ? 'reading_receipt' : 'reading_package';
+  let worker: Awaited<ReturnType<typeof createWorker>>;
   try {
-    if (options.signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError');
-    const result = await worker.recognize(image);
-    if (options.signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError');
-    return result.data.text.trim();
+    worker = await createWorker('eng', undefined, {
+      logger: (message) => options.onProgress?.({ status: progressStatus, progress: Math.min(.96, progressBase + message.progress * progressWeight) }),
+    });
+  } catch (error) {
+    source.close(); throw new OcrProcessingError('worker_failed', undefined, { cause: error });
+  }
+  let workerTerminated = false;
+  const terminateWorker = async () => {
+    if (workerTerminated) return;
+    workerTerminated = true;
+    await worker.terminate().catch(() => undefined);
+  };
+  const abort = () => { void terminateWorker(); };
+  options.signal?.addEventListener('abort', abort, { once: true });
+  let recognitionMs = 0;
+  const passes: Array<{ pass: 'primary' | 'contrast'; variant: OcrImageVariant; psm: Tesseract.PSM; start: number; end: number }> = [
+    { pass: 'primary', variant: 'primary', psm: PSM.AUTO, start: .08, end: .76 },
+    { pass: 'contrast', variant: 'contrast', psm: PSM.SINGLE_BLOCK, start: .76, end: .96 },
+  ];
+  try {
+    for (const configuration of passes) {
+      if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+      progressStatus = configuration.pass === 'primary'
+        ? options.mode === 'receipt' ? 'reading_receipt' : 'reading_package'
+        : options.mode === 'receipt' ? 'checking_items' : 'checking_product';
+      options.onProgress?.({ status: progressStatus, progress: configuration.start });
+      await yieldToBrowser();
+      await worker.setParameters({ tessedit_pageseg_mode: configuration.psm, preserve_interword_spaces: '1', user_defined_dpi: '300' });
+      const tileTexts: string[] = [];
+      for (const tile of source.tiles) {
+        if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+        await yieldToBrowser();
+        const prepStartedAt = performance.now();
+        const prepared = prepareOcrVariant(source, configuration.variant, tile);
+        preprocessingMs += performance.now() - prepStartedAt;
+        const passSpan = configuration.end - configuration.start;
+        progressBase = configuration.start + passSpan * tile.index / source.tiles.length;
+        progressWeight = passSpan / source.tiles.length;
+        try {
+          const recognitionStartedAt = performance.now();
+          const result = await worker.recognize(prepared.canvas);
+          recognitionMs += performance.now() - recognitionStartedAt;
+          tileTexts.push(result.data.text);
+        } catch (error) {
+          if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+          throw new OcrProcessingError('recognition_failed', undefined, { cause: error });
+        } finally {
+          prepared.release();
+        }
+      }
+      const text = mergeTileText(tileTexts);
+      const accepted = options.acceptText ? options.acceptText(text) : Boolean(text.trim());
+      if (accepted || configuration.pass === 'contrast') {
+        options.onProgress?.({ status: progressStatus, progress: .98 });
+        return {
+          text,
+          pass: configuration.pass,
+          runtime: {
+            inputWidth: source.plan.inputWidth,
+            inputHeight: source.plan.inputHeight,
+            scaledWidth: source.plan.scaledWidth,
+            scaledHeight: source.plan.scaledHeight,
+            maxTilePixels: source.plan.maxTilePixels,
+            tiled: source.plan.tiled,
+            tileCount: source.plan.tileCount,
+            preprocessingMs: Math.round(preprocessingMs),
+            recognitionMs: Math.round(recognitionMs),
+          },
+        };
+      }
+    }
+    throw new OcrProcessingError('recognition_failed');
+  } catch (error) {
+    if (error instanceof OcrProcessingError) throw error;
+    if (options.signal?.aborted) throw new OcrProcessingError('cancelled');
+    throw new OcrProcessingError('recognition_failed', undefined, { cause: error });
   } finally {
     options.signal?.removeEventListener('abort', abort);
-    await worker.terminate().catch(() => undefined);
+    source.close();
+    await terminateWorker();
   }
 }
 

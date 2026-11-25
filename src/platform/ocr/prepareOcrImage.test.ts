@@ -35,6 +35,8 @@ describe('OCR image scale planning', () => {
     [1080, 2400],
     [1080, 5000],
     [2000, 3000],
+    [3024, 4032],
+    [4032, 3024],
   ])('keeps every planned allocation safe for %i × %i', (width, height) => {
     expectBounded(width, height);
   });

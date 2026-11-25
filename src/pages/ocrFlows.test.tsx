@@ -15,6 +15,7 @@ const recognise = vi.mocked(recogniseImageText);
 const recogniseRecipe = vi.mocked(recogniseRecipeDocument);
 const image = new File(['image'], 'scan.png', { type: 'image/png' });
 const recipeResult = (text: string, quality: 'good' | 'review_needed' | 'poor' = 'good') => ({ rawText: text, text, meanConfidence: quality === 'poor' ? 20 : 88, lines: [], qualityScore: quality === 'poor' ? 12 : 84, quality, pass: 'primary' as const, psm: '3', discardedLines: [] });
+const genericResult = (text: string) => ({ text, pass: 'primary' as const, runtime: { inputWidth: 1000, inputHeight: 1400, scaledWidth: 1285, scaledHeight: 1800, maxTilePixels: 2_313_000, tiled: false, tileCount: 1, preprocessingMs: 8, recognitionMs: 120 } });
 
 function renderRoute(path: string, element: React.ReactNode) {
   return render(<MemoryRouter initialEntries={[path]}><AppStateProvider><Routes><Route path={path.split('?')[0]} element={element} /></Routes></AppStateProvider></MemoryRouter>);
@@ -47,13 +48,33 @@ describe('browser OCR integration boundary', () => {
   });
 
   it('passes receipt OCR text to conservative grocery proposals', async () => {
-    recognise.mockResolvedValue('TESCO\nMUSHROOMS 250G\nBABY SPINACH');
+    recognise.mockResolvedValue(genericResult('TESCO\nMUSHROOMS 250G\nBABY SPINACH'));
     renderRoute('/fridge/add', <AddFoodPage />);
     await userEvent.click(screen.getByRole('button', { name: /Scan receipt/ }));
     await userEvent.upload(screen.getByLabelText('Choose image to scan'), image);
     await screen.findByRole('heading', { name: 'Review receipt items' });
     expect(screen.getByDisplayValue('Mushrooms')).toBeVisible();
     expect(screen.getByDisplayValue('Spinach')).toBeVisible();
+  });
+
+  it('preserves readable unparsed receipt OCR for correction', async () => {
+    recognise.mockResolvedValue(genericResult('BABY SP1NACH\nCH1CKEN BREAST'));
+    renderRoute('/fridge/add', <AddFoodPage />);
+    await userEvent.click(screen.getByRole('button', { name: /Scan receipt/ }));
+    await userEvent.upload(screen.getByLabelText('Choose image to scan'), image);
+    expect(await screen.findByRole('heading', { name: /found text, but couldn’t identify grocery items/i })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Review extracted text' }));
+    expect(screen.getByLabelText('Receipt text')).toHaveValue('BABY SP1NACH\nCH1CKEN BREAST');
+  });
+
+  it('treats Add Food cancellation as navigation, not failure', async () => {
+    recognise.mockImplementation((_image, options) => new Promise((_resolve, reject) => options?.signal?.addEventListener('abort', () => reject(new OcrProcessingError('cancelled')), { once: true })));
+    renderRoute('/fridge/add', <AddFoodPage />);
+    await userEvent.click(screen.getByRole('button', { name: /Scan package/ }));
+    await userEvent.upload(screen.getByLabelText('Choose image to scan'), image);
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('heading', { name: 'Scan a package label' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: /couldn’t read/i })).not.toBeInTheDocument();
   });
 
   it('shows honest fallback when OCR returns empty', async () => {
