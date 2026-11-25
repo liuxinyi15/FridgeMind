@@ -44,6 +44,7 @@ export function migrateAppData(saved: Partial<AppData>): AppData {
       responses: session.responses.map((response) => ({ ...response, runId: response.runId ?? session.taskRuns.find((run) => run.taskId === response.taskId)?.id ?? `migrated-response-${response.taskId}` })),
     })),
     currentUsabilitySessionId: saved.currentUsabilitySessionId,
+    participantStudySessionId: saved.participantStudySessionId,
     researchNow: saved.researchNow,
   } as AppData;
 }

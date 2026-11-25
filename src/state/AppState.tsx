@@ -3,6 +3,7 @@ import { canonicalise, deductIngredient, matchRecipe, scaleIngredients } from '.
 import { respondToHabit as applyHabitResponse } from '../domain/habit';
 import type { AppData, FoodItem, MealContextChoice, NotificationPreference, QuantityMode, Recipe, RecommendationFeedbackAction, ShoppingItem, Unit, UsabilityEventType, UsabilityTaskId } from '../domain/types';
 import { taskCompletesFromEvent } from '../domain/usability';
+import { sanitiseParticipantId } from '../domain/usabilityExport';
 import { loadAppData, resetAppData, saveAppData } from '../data/repositories';
 import { createSeedData } from '../data/seed';
 
@@ -44,6 +45,7 @@ interface AppActions {
   updateNotifications: (change: Partial<NotificationPreference>) => void;
   setResearchScenario: (scenario: string) => void;
   startUsabilitySession: () => void;
+  startParticipantStudy: (participantId: string) => void;
   launchUsabilityTask: (taskId: UsabilityTaskId, askPostTaskQuestions: boolean) => void;
   logUsabilityEvent: (type: UsabilityEventType, metadata?: Record<string, string | number | boolean>, path?: string) => void;
   completeUsabilityTask: () => void;
@@ -51,6 +53,8 @@ interface AppActions {
   submitPostTaskResponse: (runId: string, taskId: UsabilityTaskId, ease: 1 | 2 | 3 | 4 | 5, confidence: 1 | 2 | 3 | 4 | 5, comment?: string) => void;
   toggleUsabilityObservation: (observation: string) => void;
   endUsabilitySession: () => void;
+  markParticipantResultsDownloaded: () => void;
+  clearParticipantStudyData: () => void;
   resetDemo: () => void;
 }
 
@@ -71,13 +75,18 @@ function recordUsabilityEvent(current: AppData, type: UsabilityEventType, metada
   if (!session || !taskId || !run || (run.status !== 'running' && !(run.status === 'completed' && postCompletionCapture))) return current;
   const at = new Date().toISOString();
   const event = { id: id('usability-event'), taskId, type, at, metadata, path };
-  const completes = run.status === 'running' && taskCompletesFromEvent(taskId, type, metadata);
+  const meetsSuccess = run.status === 'running' && !run.automaticSuccessAt && taskCompletesFromEvent(taskId, type, metadata);
+  const completes = meetsSuccess && session.mode !== 'participant';
   return {
     ...current,
     usabilitySessions: current.usabilitySessions.map((entry) => entry.id !== sessionId ? entry : {
       ...entry,
-      events: [...entry.events, event, ...(completes ? [{ id: id('usability-event'), taskId, type: 'task_completed' as const, at }] : [])],
-      taskRuns: completes ? entry.taskRuns.map((taskRun) => taskRun === run ? { ...taskRun, status: 'completed' as const, completedAt: at } : taskRun) : entry.taskRuns,
+      events: [...entry.events, event, ...(completes ? [{ id: id('usability-event'), taskId, type: 'task_completed' as const, at, metadata: { automatic: true } }] : [])],
+      taskRuns: meetsSuccess ? entry.taskRuns.map((taskRun) => taskRun === run ? {
+        ...taskRun,
+        automaticSuccessAt: at,
+        ...(completes ? { status: 'completed' as const, completedAt: at } : {}),
+      } : taskRun) : entry.taskRuns,
     }),
   };
 }
@@ -87,6 +96,7 @@ function createUsabilityFixture(taskId: UsabilityTaskId, current: AppData): AppD
   fixture.profile.onboardingComplete = true;
   fixture.usabilitySessions = current.usabilitySessions;
   fixture.currentUsabilitySessionId = current.currentUsabilitySessionId;
+  fixture.participantStudySessionId = current.participantStudySessionId;
   const makeMushroomPastaReady = () => {
     const mushrooms = fixture.inventory.find((item) => item.canonicalName === 'mushroom')!;
     mushrooms.batches[0].physicalStock = 250;
@@ -388,7 +398,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       return {
         ...current,
         currentUsabilitySessionId: sessionId,
-        usabilitySessions: [...current.usabilitySessions, { id: sessionId, startedAt: new Date().toISOString(), taskRuns: [], events: [], responses: [], observations: [] }],
+        usabilitySessions: [...current.usabilitySessions, { id: sessionId, mode: 'researcher', startedAt: new Date().toISOString(), taskRuns: [], events: [], responses: [], observations: [] }],
+      };
+    }),
+    startParticipantStudy: (participantId) => setData((current) => {
+      const safeParticipantId = sanitiseParticipantId(participantId);
+      if (!safeParticipantId) return current;
+      const sessionId = id('usability-session');
+      const session = { id: sessionId, mode: 'participant' as const, participantId: safeParticipantId, startedAt: new Date().toISOString(), taskRuns: [], events: [], responses: [], observations: [] };
+      return {
+        ...current,
+        currentUsabilitySessionId: sessionId,
+        participantStudySessionId: sessionId,
+        usabilitySessions: [...current.usabilitySessions, session],
       };
     }),
     launchUsabilityTask: (taskId, askPostTaskQuestions) => setData((current) => {
@@ -397,7 +419,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       let sessions = current.usabilitySessions;
       if (!sessionId || !sessions.some((session) => session.id === sessionId && !session.completedAt)) {
         sessionId = id('usability-session');
-        sessions = [...sessions, { id: sessionId, startedAt: at, taskRuns: [], events: [], responses: [], observations: [] }];
+        sessions = [...sessions, { id: sessionId, mode: 'researcher', startedAt: at, taskRuns: [], events: [], responses: [], observations: [] }];
       }
       const prepared = createUsabilityFixture(taskId, { ...current, usabilitySessions: sessions, currentUsabilitySessionId: sessionId });
       prepared.usabilitySessions = prepared.usabilitySessions.map((session) => {
@@ -434,8 +456,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         ...current,
         usabilitySessions: current.usabilitySessions.map((entry) => entry.id !== sessionId ? entry : {
           ...entry,
-          taskRuns: entry.taskRuns.map((taskRun) => taskRun === run ? { ...taskRun, status: 'completed' as const, completedAt: at } : taskRun),
-          events: [...entry.events, { id: id('usability-event'), taskId, type: 'task_completed' as const, at, metadata: { researcherMarked: true } }],
+          taskRuns: entry.taskRuns.map((taskRun) => taskRun === run ? { ...taskRun, status: 'completed' as const, completedAt: at, participantDeclaredAt: entry.mode === 'participant' ? at : taskRun.participantDeclaredAt } : taskRun),
+          events: [...entry.events,
+            ...(entry.mode === 'participant' ? [{ id: id('usability-event'), taskId, type: 'participant_declared_completion' as const, at }] : []),
+            { id: id('usability-event'), taskId, type: 'task_completed' as const, at, metadata: { participantDeclared: entry.mode === 'participant', researcherMarked: entry.mode !== 'participant' } },
+          ],
         }),
       };
     }),
@@ -497,6 +522,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           };
         }),
       };
+    }),
+    markParticipantResultsDownloaded: () => setData((current) => {
+      const sessionId = current.participantStudySessionId;
+      if (!sessionId) return current;
+      return {
+        ...current,
+        usabilitySessions: current.usabilitySessions.map((session) => session.id === sessionId ? { ...session, resultsDownloadedAt: new Date().toISOString() } : session),
+      };
+    }),
+    clearParticipantStudyData: () => setData((current) => {
+      const participantSessionIds = new Set(current.usabilitySessions.filter((session) => session.mode === 'participant').map((session) => session.id));
+      const seed = createSeedData();
+      seed.profile.onboardingComplete = current.profile.onboardingComplete;
+      seed.usabilitySessions = current.usabilitySessions.filter((session) => !participantSessionIds.has(session.id));
+      seed.currentUsabilitySessionId = current.currentUsabilitySessionId && !participantSessionIds.has(current.currentUsabilitySessionId) ? current.currentUsabilitySessionId : undefined;
+      seed.participantStudySessionId = undefined;
+      return seed;
     }),
     resetDemo: () => setData(resetAppData()),
   }), []);

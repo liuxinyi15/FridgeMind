@@ -44,18 +44,19 @@ export function Layout() {
       const control = (event.target as HTMLElement).closest('button, a, summary') as HTMLElement | null;
       if (!control || control.closest('[data-usability-control]')) return;
       const label = (control.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      const metadata = session?.mode === 'participant' ? undefined : { label };
       if (control.tagName === 'SUMMARY') {
-        if (/why this suggestion/i.test(label)) actions.logUsabilityEvent('recommendation_explanation_opened', { label });
-        else if (/more/i.test(label)) actions.logUsabilityEvent('more_opened', { label });
-        else actions.logUsabilityEvent('explanatory_disclosure_opened', { label });
+        if (/why this suggestion/i.test(label)) actions.logUsabilityEvent('recommendation_explanation_opened', metadata);
+        else if (/more/i.test(label)) actions.logUsabilityEvent('more_opened', metadata);
+        else actions.logUsabilityEvent('explanatory_disclosure_opened', metadata);
         return;
       }
-      if (control.classList.contains('primary')) actions.logUsabilityEvent('primary_cta_clicked', { label });
-      else if (control.classList.contains('secondary') || control.classList.contains('ghost') || control.classList.contains('text-button')) actions.logUsabilityEvent('secondary_cta_clicked', { label });
+      if (control.classList.contains('primary')) actions.logUsabilityEvent('primary_cta_clicked', metadata);
+      else if (control.classList.contains('secondary') || control.classList.contains('ghost') || control.classList.contains('text-button')) actions.logUsabilityEvent('secondary_cta_clicked', metadata);
     };
     document.addEventListener('click', capture);
     return () => document.removeEventListener('click', capture);
-  }, [activeRun?.status, activeRun?.startedAt]);
+  }, [activeRun?.status, activeRun?.startedAt, session?.mode]);
   return (
     <div className="app-shell">
       <NativeRuntimeBridge />

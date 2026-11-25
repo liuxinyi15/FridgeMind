@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { calculateTaskMetrics, interviewPrompts, observationOptions, usabilityTasks } from '../domain/usability';
+import { createUsabilityExportPayload, downloadUsabilityResults } from '../domain/usabilityExport';
 import type { UsabilityTaskId } from '../domain/types';
 import { useAppState } from '../state/AppState';
 import { StatusChip } from '../components/StatusChip';
@@ -17,21 +18,7 @@ export function UsabilityTestPage() {
     navigate(path);
   };
   const exportResults = () => {
-    const payload = {
-      format: 'fridgemind-usability-v1',
-      exportedAt: new Date().toISOString(),
-      storage: 'local-only',
-      sessions: data.usabilitySessions.map((entry) => ({
-        ...entry,
-        taskRuns: entry.taskRuns.map((run) => ({ ...run, metrics: calculateTaskMetrics(run, entry.events) })),
-      })),
-    };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `fridgemind-usability-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadUsabilityResults(createUsabilityExportPayload(data.usabilitySessions), `fridgemind-usability-${new Date().toISOString().slice(0, 10)}.json`);
   };
 
   return <div className="page-stack usability-research-page">

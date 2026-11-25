@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { usabilityTasks } from '../domain/usability';
 import type { UsabilityTaskRun } from '../domain/types';
 import { useAppState } from '../state/AppState';
@@ -7,12 +7,23 @@ import { useAppState } from '../state/AppState';
 export function UsabilityTaskPrompt() {
   const { data, actions } = useAppState();
   const location = useLocation();
+  const navigate = useNavigate();
   const session = data.usabilitySessions.find((entry) => entry.id === data.currentUsabilitySessionId);
   const taskId = session?.currentTaskId;
   const task = usabilityTasks.find((entry) => entry.id === taskId);
   const run = taskId ? [...(session?.taskRuns ?? [])].reverse().find((entry) => entry.taskId === taskId) : undefined;
   const response = run ? session?.responses.find((entry) => entry.runId === run.id) : undefined;
   if (!session || !task || !run || location.pathname.startsWith('/settings/research')) return null;
+
+  if (session.mode === 'participant') {
+    if (run.status !== 'running') return null;
+    const finish = () => { actions.completeUsabilityTask(); navigate('/test'); };
+    const abandon = () => { actions.abandonUsabilityTask(); navigate('/test'); };
+    return <aside className="participant-task-controls" aria-label="Study task controls" data-usability-control>
+      <span>Task {task.id.replace('task-', '')} of 7</span>
+      <div><button onClick={abandon}>I can’t complete this task</button><button className="participant-finish-button" onClick={finish}>I’m finished</button></div>
+    </aside>;
+  }
 
   return <aside className={`usability-task-prompt ${run.status}`} aria-live="polite" data-usability-control>
     <div><span>{run.status === 'running' ? 'Your task' : run.status === 'completed' ? 'Task complete' : 'Task stopped'}</span><strong>{task.prompt}</strong></div>

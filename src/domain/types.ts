@@ -174,6 +174,7 @@ export type UsabilityTaskId = 'task-1' | 'task-2' | 'task-3' | 'task-4' | 'task-
 
 export type UsabilityEventType =
   | 'task_started' | 'task_completed' | 'task_abandoned'
+  | 'participant_declared_completion'
   | 'page_visited' | 'primary_cta_clicked' | 'secondary_cta_clicked' | 'back_navigation'
   | 'more_opened' | 'recommendation_explanation_opened' | 'explanatory_disclosure_opened'
   | 'recipe_opened' | 'meal_context_changed'
@@ -199,6 +200,8 @@ export interface UsabilityTaskRun {
   startedAt: string;
   completedAt?: string;
   abandonedAt?: string;
+  automaticSuccessAt?: string;
+  participantDeclaredAt?: string;
   askPostTaskQuestions: boolean;
 }
 
@@ -213,8 +216,11 @@ export interface PostTaskResponse {
 
 export interface UsabilitySession {
   id: string;
+  mode?: 'researcher' | 'participant';
+  participantId?: string;
   startedAt: string;
   completedAt?: string;
+  resultsDownloadedAt?: string;
   currentTaskId?: UsabilityTaskId;
   taskRuns: UsabilityTaskRun[];
   events: UsabilityEvent[];
@@ -279,6 +285,7 @@ export interface AppData {
   awayMode: AwayMode;
   usabilitySessions: UsabilitySession[];
   currentUsabilitySessionId?: string;
+  participantStudySessionId?: string;
   researchNow?: string;
   researchScenario: string;
 }

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { useAppState } from './state/AppState';
 import { OnboardingPage } from './pages/OnboardingPage';
@@ -14,9 +14,12 @@ import { CookingPage } from './pages/CookingPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ResearchModePage } from './pages/ResearchModePage';
 import { UsabilityTestPage } from './pages/UsabilityTestPage';
+import { ParticipantStudyPage } from './pages/ParticipantStudyPage';
 
 export function App() {
   const { data } = useAppState();
+  const location = useLocation();
+  if (location.pathname === '/test') return <Routes><Route path="test" element={<ParticipantStudyPage />} /></Routes>;
   if (!data.profile.onboardingComplete) return <Routes><Route path="*" element={<OnboardingPage />} /></Routes>;
   return (
     <Routes>

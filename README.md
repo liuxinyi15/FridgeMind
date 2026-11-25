@@ -55,7 +55,7 @@ pnpm mobile:android
 
 The generated native projects live under `ios/` and `android/`. Platform signing and toolchain requirements are documented in [`docs/13_MOBILE_DISTRIBUTION.md`](docs/13_MOBILE_DISTRIBUTION.md).
 
-For the secondary HTTPS research build, run `pnpm research:build` and deploy `dist/`; `netlify.toml` provides SPA fallback configuration.
+For the secondary HTTPS research build, run `pnpm research:build` and deploy `dist/`; `netlify.toml` provides SPA fallback configuration. GitHub Pages deployment and the participant-specific `/test` workflow are documented in [`docs/REMOTE_USABILITY_TEST_GUIDE.md`](docs/REMOTE_USABILITY_TEST_GUIDE.md).
 
 Verified public research build: [fridgemind-research-v011.ampleartichoke32.chatgpt.site](https://fridgemind-research-v011.ampleartichoke32.chatgpt.site). This is a browser-accessible study/backup route, not the primary product identity.
 
