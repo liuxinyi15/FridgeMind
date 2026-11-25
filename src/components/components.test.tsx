@@ -78,7 +78,7 @@ describe('Shopping List', () => {
 describe('Add Food permission fallback', () => {
   it('explains image access before continuing and preserves manual entry', async () => {
     render(<MemoryRouter initialEntries={['/fridge/add']}><AppStateProvider><Routes><Route path="/fridge/add" element={<AddFoodPage />} /><Route path="/fridge" element={<div>Fridge</div>} /></Routes></AppStateProvider></MemoryRouter>);
-    await userEvent.click(screen.getByRole('button', { name: /Scan groceries/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Photo \+ item names/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Take a photo' }));
     expect(screen.getByRole('dialog', { name: 'Open your camera?' })).toBeVisible();
     await userEvent.click(screen.getAllByRole('button', { name: 'Cancel' }).at(-1)!);

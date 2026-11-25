@@ -6,17 +6,25 @@ import type { Recipe, RecipeIngredient, Unit } from '../domain/types';
 import { useAppState } from '../state/AppState';
 import { Icon } from '../components/Icon';
 
-type ImportView = 'choices' | 'text' | 'processing' | 'review' | 'failure';
-const sample = `Chicken stir fry
+type ImportView = 'choices' | 'text' | 'review';
+const sample = `Creamy mushroom pasta
 
-250g chicken
-1 item onion
-100g spinach
-2 tbsp soy sauce
-140g rice
+Serves 2
+Ready in 25 minutes
 
-25 minutes
-2 servings`;
+Ingredients
+180 g spaghetti
+200g mushrooms
+1 small onion
+120 ml double cream
+2 cloves garlic
+Salt and pepper
+
+Method
+1. Cook the pasta.
+2. Fry mushrooms and onion.
+3. Add cream.
+4. Combine and serve.`;
 
 function imageRecipe(): Recipe {
   return {
@@ -42,17 +50,21 @@ export function RecipeImportPage() {
 
   useEffect(() => {
     const fixture = params.get('fixture');
-    if (fixture === 'image') { setDraft(imageRecipe()); setView('review'); }
-    if (fixture === 'text') { setText(sample); setView('text'); }
-  }, [params]);
+    if (data.experienceMode === 'research' && fixture === 'image') { setDraft(imageRecipe()); setView('review'); }
+    if (data.experienceMode === 'research' && fixture === 'text') { setText(sample); setView('text'); }
+  }, [params, data.experienceMode]);
 
-  const parse = () => { setDraft(parseRecipeText(text)); setView('review'); };
+  const isResearchFixture = data.experienceMode === 'research' && params.get('fixture') === 'image';
+  const parse = () => { setDraft({ ...parseRecipeText(text), importedImage: useCover ? imagePreview : undefined }); setView('review'); };
   const handleImage = (file?: File) => {
     if (!file) return;
-    setView('processing');
     const reader = new FileReader();
-    reader.onload = () => { const url = String(reader.result); setImagePreview(url); setUseCover(true); window.setTimeout(() => { if (/empty|unknown|blank/i.test(file.name)) { setView('failure'); return; } const proposed = imageRecipe(); setDraft({ ...proposed, importedImage: url }); setView('review'); }, 250); };
-    reader.onerror = () => setView('failure');
+    reader.onload = () => {
+      const url = String(reader.result);
+      setImagePreview(url); setUseCover(true);
+      setDraft(isResearchFixture ? { ...imageRecipe(), importedImage: url } : { ...blankRecipe(), importedImage: url });
+      setView('review');
+    };
     reader.readAsDataURL(file);
   };
   const startManual = () => { setDraft(blankRecipe()); setView('review'); };
@@ -65,12 +77,10 @@ export function RecipeImportPage() {
   const updateIngredient = (id: string, change: Partial<RecipeIngredient>) => draft && setDraft({ ...draft, ingredients: draft.ingredients.map((item) => item.id === id ? { ...item, ...change, ...(change.name ? { canonicalName: canonicalise(change.name) } : {}) } : item) });
 
   return <div className="page-stack narrow-page recipe-import-page">
-    <section><span className="overline">Personal recipes</span><h1>{editRecipe ? 'Edit recipe' : view === 'review' ? 'Review recipe' : 'Import recipe'}</h1><p>{view === 'review' ? 'Correct anything that was missed. You can save without complete instructions.' : 'Start with a screenshot, pasted text, or only the details you know.'}</p></section>
-    {view === 'choices' && <section className="mobile-action-list method-sheet" aria-label="Recipe import options"><div className="sheet-handle" /><h2>Add a recipe</h2><button onClick={() => imageInput.current?.click()}><span className="action-icon"><Icon name="gallery" /></span><span><strong>Recipe photo or screenshot</strong><small>Review an editable proposal before saving.</small></span><Icon name="chevron" size={18} /></button><button onClick={() => setView('text')}><span className="action-icon"><Icon name="edit" /></span><span><strong>Paste recipe text</strong><small>Flexible formatting is fine.</small></span><Icon name="chevron" size={18} /></button><button onClick={startManual}><span className="action-icon"><Icon name="plus" /></span><span><strong>Create manually</strong><small>Name, servings and ingredients are enough.</small></span><Icon name="chevron" size={18} /></button></section>}
+    <section><span className="overline">Personal recipes</span><h1>{editRecipe ? 'Edit recipe' : view === 'review' ? imagePreview && !draft?.originalText ? 'Image added' : 'Review what we found' : 'Add a recipe'}</h1><p>{view === 'review' ? imagePreview && !draft?.originalText && !isResearchFixture ? 'Add the recipe details below, or paste recipe text. The image will stay as the cover.' : 'Check the details before saving.' : 'Paste a recipe you already like, add a cover image, or enter the details yourself.'}</p></section>
+    {view === 'choices' && <section className="mobile-action-list method-sheet" aria-label="Recipe import options"><div className="sheet-handle" /><h2>Add a recipe</h2><button onClick={() => setView('text')}><span className="action-icon"><Icon name="edit" /></span><span><strong>Paste recipe text</strong><small>Our most reliable import option. Flexible formatting is fine.</small></span><Icon name="chevron" size={18} /></button><button onClick={() => imageInput.current?.click()}><span className="action-icon"><Icon name="gallery" /></span><span><strong>Add a cover image</strong><small>We’ll keep the image; you add or paste the recipe details.</small></span><Icon name="chevron" size={18} /></button><button onClick={startManual}><span className="action-icon"><Icon name="plus" /></span><span><strong>Create manually</strong><small>Name, servings and ingredients are enough.</small></span><Icon name="chevron" size={18} /></button></section>}
     {view === 'text' && <section className="form-card"><label>Recipe text<textarea rows={13} value={text} onChange={(event) => setText(event.target.value)} /></label><div className="button-row"><button className="button secondary" onClick={() => setView('choices')}>Back</button><button className="button primary" onClick={parse} disabled={!text.trim()}>Review recipe</button></div><p className="form-hint">We’ll preserve the original text and propose the fields we can identify.</p></section>}
-    {view === 'processing' && <section className="processing-card" aria-live="polite"><span className="processing-spinner" /><h2>Preparing recipe…</h2><p>You can review every field before saving.</p></section>}
-    {view === 'failure' && <section className="empty-state"><Icon name="info" size={30} /><h2>We couldn’t structure this recipe automatically.</h2><p>The image may be unclear or contain too little recipe text.</p><div className="button-row"><button className="button primary" onClick={() => imageInput.current?.click()}>Try another image</button><button className="button secondary" onClick={() => setView('text')}>Paste text</button><button className="button ghost" onClick={startManual}>Create manually</button></div></section>}
-    {view === 'review' && draft && <section className="recipe-review form-card">{imagePreview && <div className="recipe-cover-review"><img src={imagePreview} alt="Recipe import preview" /><label><input type="checkbox" checked={useCover} onChange={(event) => setUseCover(event.target.checked)} /> Use original image as cover</label></div>}<div className="form-grid"><label className="wide">Recipe name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Servings<input type="number" min="1" max="12" value={draft.baseServings} onChange={(event) => setDraft({ ...draft, baseServings: Number(event.target.value) || 1 })} /></label><label>Preparation time<input type="number" min="0" value={draft.minutes} onChange={(event) => setDraft({ ...draft, minutes: Number(event.target.value) || 0 })} /></label></div><div className="review-section-heading"><h2>Ingredients</h2><button className="text-button" onClick={() => setDraft({ ...draft, ingredients: [...draft.ingredients, ingredient(`new-${draft.ingredients.length}`, '', 1, 'item')] })}>Add ingredient</button></div><div className="ingredient-edit-list">{draft.ingredients.map((item, index) => <div className="ingredient-edit" key={item.id}><label><span className="sr-only">Ingredient {index + 1} name</span><input aria-label={`Ingredient ${index + 1} name`} value={item.name} onChange={(event) => updateIngredient(item.id, { name: event.target.value })} /></label><label><span className="sr-only">Quantity</span><input aria-label={`Ingredient ${index + 1} quantity`} type="number" min="0" value={item.quantity} onChange={(event) => updateIngredient(item.id, { quantity: Number(event.target.value) })} /></label><label><span className="sr-only">Unit</span><select aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => updateIngredient(item.id, { unit: event.target.value as Unit })}><option>g</option><option>ml</option><option>item</option><option>tbsp</option><option>tsp</option><option>cup</option></select></label><button className="icon-button small" aria-label={`Delete ingredient ${index + 1}`} onClick={() => setDraft({ ...draft, ingredients: draft.ingredients.filter((ingredientItem) => ingredientItem.id !== item.id) })}><Icon name="trash" size={17} /></button></div>)}</div><label>Instructions<textarea rows={5} value={draft.steps.join('\n')} onChange={(event) => setDraft({ ...draft, steps: event.target.value.split('\n').filter(Boolean) })} placeholder="Optional" /></label><label>Tags<input value={draft.tags.join(', ')} onChange={(event) => setDraft({ ...draft, tags: event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} placeholder="Quick, vegetarian" /></label><div className="sticky-actions import-sticky"><button className="button secondary" onClick={() => editRecipe ? navigate(`/recipes/${editRecipe.id}`) : setView('choices')}>Cancel</button><button className="button primary" onClick={save} disabled={!draft.name.trim() || !draft.ingredients.some((item) => item.name.trim())}>{editRecipe ? 'Save changes' : 'Save recipe'}</button></div></section>}
+    {view === 'review' && draft && <section className="recipe-review form-card">{isResearchFixture && <p className="fixture-label">Research Mode · simulated recognition fixture</p>}{imagePreview && <div className="recipe-cover-review"><img src={imagePreview} alt="Recipe cover preview" /><label><input type="checkbox" checked={useCover} onChange={(event) => setUseCover(event.target.checked)} /> Use image as cover</label>{!isResearchFixture && !draft.originalText && <button className="button secondary" onClick={() => setView('text')}>Paste recipe text</button>}</div>}<div className="form-grid"><label className="wide">Recipe name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Servings<input type="number" min="1" max="12" value={draft.baseServings} onChange={(event) => setDraft({ ...draft, baseServings: Number(event.target.value) || 1 })} /></label><label>Preparation time<input type="number" min="0" value={draft.minutes} onChange={(event) => setDraft({ ...draft, minutes: Number(event.target.value) || 0 })} /></label></div><div className="review-section-heading"><h2>Ingredients</h2><button className="text-button" onClick={() => setDraft({ ...draft, ingredients: [...draft.ingredients, ingredient(`new-${draft.ingredients.length}`, '', 1, 'item')] })}>Add ingredient</button></div><div className="ingredient-edit-list">{draft.ingredients.map((item, index) => <div className="ingredient-edit" key={item.id}><label><span className="sr-only">Ingredient {index + 1} name</span><input aria-label={`Ingredient ${index + 1} name`} value={item.name} onChange={(event) => updateIngredient(item.id, { name: event.target.value })} /></label><label><span className="sr-only">Quantity</span><input aria-label={`Ingredient ${index + 1} quantity`} type="number" min="0" step="any" value={item.quantity} onChange={(event) => updateIngredient(item.id, { quantity: Number(event.target.value) })} /></label><label><span className="sr-only">Unit</span><select aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => updateIngredient(item.id, { unit: event.target.value as Unit })}><option>g</option><option>ml</option><option>item</option><option>tbsp</option><option>tsp</option><option>cup</option></select></label><button className="icon-button small" aria-label={`Delete ingredient ${index + 1}`} onClick={() => setDraft({ ...draft, ingredients: draft.ingredients.filter((ingredientItem) => ingredientItem.id !== item.id) })}><Icon name="trash" size={17} /></button></div>)}</div><label>Instructions<textarea rows={5} value={draft.steps.join('\n')} onChange={(event) => setDraft({ ...draft, steps: event.target.value.split('\n').filter(Boolean) })} placeholder="Optional" /></label>{draft.originalText && <details className="concept-card"><summary>Original pasted text</summary><pre className="original-recipe-text">{draft.originalText}</pre></details>}<label>Tags<input value={draft.tags.join(', ')} onChange={(event) => setDraft({ ...draft, tags: event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} placeholder="Quick, vegetarian" /></label><div className="sticky-actions import-sticky"><button className="button secondary" onClick={() => editRecipe ? navigate(`/recipes/${editRecipe.id}`) : setView('choices')}>Cancel</button><button className="button primary" onClick={save} disabled={!draft.name.trim() || !draft.ingredients.some((item) => item.name.trim())}>{editRecipe ? 'Save changes' : 'Save recipe'}</button></div></section>}
     <input ref={imageInput} className="sr-only" type="file" accept="image/*" aria-label="Choose recipe image" onChange={(event) => handleImage(event.target.files?.[0])} />
   </div>;
 }

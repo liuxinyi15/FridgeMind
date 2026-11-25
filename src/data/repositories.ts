@@ -1,5 +1,5 @@
 import type { AppData, FoodItem, Intervention, NotificationPreference, Recipe, UserProfile } from '../domain/types';
-import { createSeedData } from './seed';
+import { createConsumerData } from './seed';
 
 export interface InventoryRepository { getAll(): FoodItem[]; save(items: FoodItem[]): void; }
 export interface RecipeRepository { getAll(): Recipe[]; save(items: Recipe[]): void; }
@@ -15,11 +15,11 @@ export function loadAppData(): AppData {
   } catch {
     // The seed remains a safe fallback if local storage is blocked or corrupted.
   }
-  return createSeedData();
+  return createConsumerData();
 }
 
 export function migrateAppData(saved: Partial<AppData>): AppData {
-  const seed = createSeedData();
+  const seed = createConsumerData();
   const inventory = (saved.inventory ?? seed.inventory).map((item) => ({
     ...item,
     kind: item.kind ?? 'ingredient' as const,
@@ -32,7 +32,8 @@ export function migrateAppData(saved: Partial<AppData>): AppData {
   return {
     ...seed,
     ...saved,
-    schemaVersion: 4,
+    schemaVersion: 5,
+    experienceMode: saved.experienceMode ?? 'consumer',
     inventory,
     recipes: (saved.recipes ?? seed.recipes).map((recipe) => ({ ...recipe, ownership: recipe.ownership ?? (recipe.source === 'imported' || recipe.source === 'created' ? 'personal' : 'built_in') })),
     mealContexts: saved.mealContexts ?? [],
@@ -56,7 +57,7 @@ export function saveAppData(data: AppData) {
 }
 
 export function resetAppData() {
-  const data = createSeedData();
+  const data = createConsumerData();
   saveAppData(data);
   return data;
 }

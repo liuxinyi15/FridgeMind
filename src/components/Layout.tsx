@@ -72,6 +72,7 @@ export function Layout() {
         </div>
       </header>
       <UsabilityTaskPrompt />
+      {data.experienceMode === 'demo' && <div className="demo-banner"><strong>Demo Fridge</strong><span>Sample data</span><button onClick={actions.leaveDemo}>Exit demo</button></div>}
       <main id="main-content" className="page-content" tabIndex={-1}><Outlet /></main>
       <nav className="bottom-nav" aria-label="Primary navigation">
         {navItems.map((item) => (

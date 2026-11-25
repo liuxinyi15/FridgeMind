@@ -2,9 +2,7 @@ import { test, expect } from '@playwright/test';
 
 async function completeOnboarding(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Get started' }).click();
-  for (let step = 0; step < 2; step++) await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: 'Open my kitchen' }).click();
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
 }
 
 async function launchTask(page: import('@playwright/test').Page, title: string) {
@@ -64,7 +62,7 @@ test('researcher can run, measure and export local usability tasks', async ({ pa
 test('normal product UI has no research prompt outside a session', async ({ page }) => {
   await completeOnboarding(page);
   await expect(page.getByText('Your task')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Dinner, sorted.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /foods may be forgotten/ }).first()).toBeVisible();
 });
 
 test('task fixtures 2, 3, 5 and 6 reach their distinct success conditions', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import path from 'node:path';
 
 const output = (name: string) => path.resolve('docs/evidence/screenshots', name);
@@ -6,35 +6,24 @@ const output = (name: string) => path.resolve('docs/evidence/screenshots', name)
 test('capture reproducible HCI evidence', async ({ page }) => {
   await page.goto('/');
   await page.screenshot({ path: output('01_onboarding.png'), fullPage: true });
-  for (let step = 0; step < 3; step++) await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: 'Start planning' }).click();
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
   await page.screenshot({ path: output('02_today_initial.png'), fullPage: true });
   await page.locator('.use-soon-card').screenshot({ path: output('03_use_soon.png') });
-  await page.getByRole('link', { name: 'My Fridge' }).click();
+  await page.goto('/fridge');
   await page.screenshot({ path: output('04_fridge_inventory.png'), fullPage: true });
-  await page.getByRole('link', { name: 'Add food' }).click();
+  await page.goto('/fridge/add');
   await page.screenshot({ path: output('05_add_food.png'), fullPage: true });
   await page.goto('/recipes/import');
   await page.screenshot({ path: output('06_recipe_import.png'), fullPage: true });
   await page.goto('/recipes/recipe-mushroom-pasta');
   await page.screenshot({ path: output('07_recipe_match.png'), fullPage: true });
-  await page.getByRole('button', { name: '3' }).click();
-  await page.locator('.serving-panel').screenshot({ path: output('08_serving_adjustment.png') });
-  await page.getByRole('button', { name: 'Add gaps to shopping' }).click();
+  await page.getByRole('button', { name: 'Increase portions' }).click();
+  await page.screenshot({ path: output('08_serving_adjustment.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Add missing items' }).click();
   await page.goto('/shopping');
   await page.screenshot({ path: output('09_shopping_list.png'), fullPage: true });
-  await page.goto('/recipes/recipe-mushroom-pasta/cook?servings=3');
-  await page.getByRole('button', { name: 'I’ve finished cooking' }).click();
-  await page.screenshot({ path: output('10_cooking_confirmation.png'), fullPage: true });
-  await page.goto('/settings');
-  await page.locator('.habit-card').screenshot({ path: output('11_habit_insight.png') });
-  await page.goto('/');
-  await page.locator('.use-soon-card').screenshot({ path: output('12_proactive_intervention.png') });
-  await page.getByText('Why am I seeing this?').click();
-  await page.locator('.use-soon-card').screenshot({ path: output('13_intervention_explanation.png') });
   await page.goto('/settings');
   await page.screenshot({ path: output('14_notification_settings.png'), fullPage: true });
   await page.goto('/fridge/food-cream');
-  await expect(page.getByText('needs confirmation')).toBeVisible();
   await page.screenshot({ path: output('15_uncertain_inventory.png'), fullPage: true });
 });

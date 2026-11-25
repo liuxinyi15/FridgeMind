@@ -42,7 +42,7 @@ describe('V0.3 personal food and recipe model', () => {
     const recipe = legacy.recipes[0];
     delete recipe.ownership;
     const migrated = migrateAppData({ ...legacy, schemaVersion: 3 as never });
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
     expect(migrated.inventory[0].batches[0].source).toBe('manual');
     expect(migrated.recipes[0].ownership).toBe('built_in');
   });

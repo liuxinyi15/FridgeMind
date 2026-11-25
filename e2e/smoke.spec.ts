@@ -2,11 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test('core FridgeMind journey remains linked', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Get started' }).click();
-  for (let step = 0; step < 2; step++) await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: 'Open my kitchen' }).click();
-  await expect(page.getByRole('heading', { name: 'Dinner, sorted.' })).toBeVisible();
-  await page.getByRole('link', { name: 'Mushroom Pasta' }).first().click();
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
+  await expect(page.getByRole('heading', { name: /foods may be forgotten/ }).first()).toBeVisible();
+  await page.goto('/recipes/recipe-mushroom-pasta');
   await page.getByRole('button', { name: 'Increase portions' }).click();
   await expect(page.getByText('Missing 180g')).toBeVisible();
   await page.getByRole('button', { name: 'Add missing items' }).click();

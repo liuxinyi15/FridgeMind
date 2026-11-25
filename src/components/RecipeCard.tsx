@@ -9,7 +9,7 @@ export function RecipeCard({ recommendation, featured = false }: { recommendatio
   const { data, actions } = useAppState();
   const { recipe } = recommendation;
   const gapLabel = recommendation.availability === 'READY'
-    ? 'Everything you need'
+    ? 'No shopping needed'
     : recommendation.availability === 'READY_WITH_UNCERTAINTY'
       ? `Check ${recommendation.uncertainIngredientCount} ${recommendation.uncertainIngredientCount === 1 ? 'item' : 'items'}`
       : `Missing ${recommendation.missingIngredientCount} ${recommendation.missingIngredientCount === 1 ? 'ingredient' : 'ingredients'}`;
@@ -26,18 +26,13 @@ export function RecipeCard({ recommendation, featured = false }: { recommendatio
           <span><Icon name="clock" size={15} /> {recipe.minutes > 0 ? `${recipe.minutes} min` : 'Time not added'}</span><span><Icon name="servings" size={15} /> {recipe.baseServings} servings</span>
         </div>
         <h3><Link to={`/recipes/${recipe.id}`}>{recipe.name}</Link></h3>
+        {recommendation.reasons.length > 0 && <p className="recipe-reason">{recommendation.reasons.slice(0, 2).join(' · ')}</p>}
         <div className="recipe-card-footer"><StatusChip tone={recommendation.availability === 'READY' ? 'good' : 'neutral'}>{gapLabel}</StatusChip>{featured && <Link className="button primary compact" to={`/recipes/${recipe.id}`}>Cook this</Link>}</div>
         {featured && <details className="explanation">
-          <summary>Why this suggestion?</summary>
+          <summary>Why this meal?</summary>
           <ul>{recommendation.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-          <div className="recommendation-feedback">
-            <span>Not right today?</span>
-            <button onClick={() => actions.addRecommendationFeedback(recipe.id, 'not_in_mood')}>Not in the mood</button>
-            <button onClick={() => actions.addRecommendationFeedback(recipe.id, 'ate_recently')}>Already ate this recently</button>
-            <button onClick={() => actions.addRecommendationFeedback(recipe.id, 'never_recommend')}>Don’t recommend this recipe</button>
-            {correctionItem && <Link to={`/fridge/${correctionItem.id}`}>Ingredient information is wrong</Link>}
-          </div>
         </details>}
+        {featured && <details className="explanation recommendation-more"><summary>More</summary><div className="recommendation-feedback"><button onClick={() => actions.addRecommendationFeedback(recipe.id, 'not_in_mood')}>Not in the mood</button><button onClick={() => actions.addRecommendationFeedback(recipe.id, 'ate_recently')}>Already ate this recently</button><button onClick={() => actions.addRecommendationFeedback(recipe.id, 'never_recommend')}>Don’t suggest this recipe</button>{correctionItem && <Link to={`/fridge/${correctionItem.id}`}>Fix ingredient details</Link>}</div></details>}
       </div>
     </article>
   );

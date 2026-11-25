@@ -64,6 +64,8 @@ export interface FoodItem {
   cookedAt?: string;
   sourceRecipeId?: string;
   category?: 'fresh' | 'pantry' | 'frozen';
+  /** Optional local photo kept only as a visual reference; never treated as recognition output. */
+  referenceImage?: string;
 }
 
 export interface InventoryEvent {
@@ -271,7 +273,8 @@ export interface ActivityEvent {
 }
 
 export interface AppData {
-  schemaVersion: 4;
+  schemaVersion: 5;
+  experienceMode: 'consumer' | 'demo' | 'research';
   profile: UserProfile;
   inventory: FoodItem[];
   inventoryEvents: InventoryEvent[];

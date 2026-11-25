@@ -127,11 +127,32 @@ export const demoRecipes: Recipe[] = [
     ingredients: [{ id: 'mr-1', name: 'Rice', canonicalName: 'rice', quantity: 80, unit: 'g' }, { id: 'mr-2', name: 'Mushrooms', canonicalName: 'mushroom', quantity: 120, unit: 'g' }, { id: 'mr-3', name: 'Soy sauce', canonicalName: 'soy sauce', quantity: 1, unit: 'tbsp' }],
     steps: ['Cook the rice.', 'Brown the mushrooms.', 'Serve together with soy sauce.'],
   },
+  {
+    id: 'recipe-loaded-potato', name: 'Loaded Baked Potato', baseServings: 1, minutes: 50, source: 'recommended', tags: ['One person', 'Oven'],
+    ingredients: [{ id: 'bp-1', name: 'Potato', canonicalName: 'potato', quantity: 1, unit: 'item' }, { id: 'bp-2', name: 'Cheese', canonicalName: 'cheese', quantity: 40, unit: 'g' }, { id: 'bp-3', name: 'Spinach', canonicalName: 'spinach', quantity: 60, unit: 'g' }],
+    steps: ['Bake the potato until tender.', 'Wilt the spinach.', 'Split, fill and top with cheese.'],
+  },
+  {
+    id: 'recipe-chickpea-salad', name: 'Chickpea Crunch Salad', baseServings: 2, minutes: 12, source: 'recommended', tags: ['No cook', 'Lunch', 'Leftovers friendly'],
+    ingredients: [{ id: 'cc-1', name: 'Chickpeas', canonicalName: 'chickpea', quantity: 240, unit: 'g' }, { id: 'cc-2', name: 'Tomatoes', canonicalName: 'tomato', quantity: 2, unit: 'item' }, { id: 'cc-3', name: 'Spinach', canonicalName: 'spinach', quantity: 80, unit: 'g' }],
+    steps: ['Drain the chickpeas.', 'Chop the tomatoes.', 'Toss everything with your usual dressing.'],
+  },
+  {
+    id: 'recipe-tomato-eggs', name: 'Tomato Eggs on Toast', baseServings: 1, minutes: 18, source: 'recommended', tags: ['One person', 'Stovetop'],
+    ingredients: [{ id: 'te-1', name: 'Eggs', canonicalName: 'egg', quantity: 2, unit: 'item' }, { id: 'te-2', name: 'Tomatoes', canonicalName: 'tomato', quantity: 2, unit: 'item' }, { id: 'te-3', name: 'Bread slices', canonicalName: 'bread slice', quantity: 2, unit: 'item' }],
+    steps: ['Soften the tomatoes in a pan.', 'Add beaten eggs and stir gently.', 'Serve on toast.'],
+  },
+  {
+    id: 'recipe-chicken-traybake', name: 'Chicken and Vegetable Traybake', baseServings: 2, minutes: 40, source: 'recommended', tags: ['Oven', 'Makes leftovers'],
+    ingredients: [{ id: 'ct-1', name: 'Chicken', canonicalName: 'chicken', quantity: 250, unit: 'g' }, { id: 'ct-2', name: 'Potatoes', canonicalName: 'potato', quantity: 400, unit: 'g' }, { id: 'ct-3', name: 'Onion', canonicalName: 'onion', quantity: 1, unit: 'item' }, { id: 'ct-4', name: 'Carrots', canonicalName: 'carrot', quantity: 2, unit: 'item' }],
+    steps: ['Chop the vegetables.', 'Roast with the chicken until everything is cooked through.', 'Save the second portion for later.'],
+  },
 ];
 
 export function createSeedData(): AppData {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
+    experienceMode: 'demo',
     profile: {
       id: 'alex', name: 'Alex', onboardingComplete: false,
       routine: { cookingFrequency: '3-4', shoppingFrequency: '1-2', typicalServings: 2, weekdayLunchAtHome: false },
@@ -155,6 +176,42 @@ export function createSeedData(): AppData {
     substitutions: {},
     awayMode: { active: false },
     usabilitySessions: [],
+    researchScenario: 'A',
+  };
+}
+
+/** A real first run: useful built-in ideas, but no invented food, history or preferences. */
+export function createConsumerData(): AppData {
+  const data = createSeedData();
+  return {
+    ...data,
+    experienceMode: 'consumer',
+    profile: {
+      ...data.profile,
+      id: 'local-user',
+      name: 'You',
+      onboardingComplete: false,
+      notifications: { ...data.profile.notifications, proactiveEnabled: false, mode: 'in_app' },
+    },
+    inventory: [],
+    inventoryEvents: [],
+    savedRecipes: [],
+    mealPlans: [],
+    shopping: [],
+    habits: [],
+    interventions: [],
+    interventionFeedback: [],
+    activity: [],
+    mealContexts: [],
+    cookingSession: undefined,
+    recommendationFeedback: [],
+    approvedRoutines: [],
+    substitutions: {},
+    awayMode: { active: false },
+    usabilitySessions: [],
+    currentUsabilitySessionId: undefined,
+    participantStudySessionId: undefined,
+    researchNow: undefined,
     researchScenario: 'A',
   };
 }

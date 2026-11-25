@@ -89,15 +89,16 @@ export function scoreRecipe(
     repetitionPenalty,
     contextFit,
   };
-  const raw = .22 * factors.urgency + .2 * factors.availability + .1 * factors.inventoryConfidence + .12 * factors.missingItems + .1 * factors.preparationFit + .08 * factors.portionFit + .05 * factors.cookingFrequencyFit + .06 * factors.savedPreference + .07 * factors.contextFit - .18 * factors.repetitionPenalty;
+  const personalFit = recipe.ownership === 'personal' ? .08 : 0;
+  const raw = .22 * factors.urgency + .2 * factors.availability + .1 * factors.inventoryConfidence + .12 * factors.missingItems + .1 * factors.preparationFit + .08 * factors.portionFit + .05 * factors.cookingFrequencyFit + .06 * factors.savedPreference + .07 * factors.contextFit + personalFit - .18 * factors.repetitionPenalty;
   const score = permanentBlock || dayBlock ? -1 : raw;
   const reasons: string[] = [];
-  if (usedSoon.length) reasons.push(`Uses ${usedSoon.slice(0, 2).map((item) => item.name).join(' and ')} that should be used soon`);
-  if (missingIngredientCount === 0 && uncertainIngredientCount === 0) reasons.push('Everything you need is confirmed');
+  if (usedSoon.length) reasons.push(`Uses ${usedSoon.slice(0, 2).map((item) => item.name.toLowerCase()).join(' and ')} that needs attention`);
+  if (missingIngredientCount === 0 && uncertainIngredientCount === 0) reasons.push('Everything is already in your kitchen');
   else if (missingIngredientCount === 1) reasons.push('Only one ingredient is missing');
   if (recipe.minutes > 0 && recipe.minutes <= 30) reasons.push(`Ready in ${recipe.minutes} minutes`);
-  if (recipe.baseServings === typicalServings) reasons.push(`Matches your usual ${typicalServings}-portion cooking preference`);
-  if (saved) reasons.push('One of your saved recipes');
+  if (recipe.ownership === 'personal') reasons.push('A recipe you already know');
+  else if (saved) reasons.push('One of your saved recipes');
   return {
     recipe,
     score,
@@ -117,6 +118,6 @@ export function scoreRecipe(
 export function rankRecipes(recipes: Recipe[], inventory: FoodItem[], typicalServings: number, saved: SavedRecipe[], options: RecommendationOptions = {}) {
   return recipes
     .map((recipe) => scoreRecipe(recipe, inventory, typicalServings, saved, options))
-    .filter((result) => result.score >= 0 && result.availability !== 'NOT_PRACTICAL')
+    .filter((result) => result.score >= 0 && (result.availability !== 'NOT_PRACTICAL' || result.recipe.ownership === 'personal'))
     .sort((a, b) => b.score - a.score || a.recipe.minutes - b.recipe.minutes);
 }

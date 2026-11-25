@@ -2,9 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('complete everyday product loop persists through leftovers', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Get started' }).click();
-  for (let step = 0; step < 2; step++) await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: 'Open my kitchen' }).click();
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
 
   await page.getByRole('link', { name: 'Fridge' }).click();
   await page.getByRole('link', { name: /Add food/ }).click();
@@ -17,8 +15,9 @@ test('complete everyday product loop persists through leftovers', async ({ page 
   await expect(page.getByRole('heading', { name: 'Egg' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Today' }).click();
+  await page.getByRole('button', { name: 'Change' }).click();
   await page.getByRole('button', { name: 'Cooking tonight' }).click();
-  await expect(page.getByRole('button', { name: 'Cooking tonight' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Cooking', { exact: true })).toBeVisible();
 
   await page.goto('/recipes/recipe-mushroom-pasta');
   await page.getByRole('button', { name: 'Start cooking' }).click();
@@ -38,7 +37,7 @@ test('complete everyday product loop persists through leftovers', async ({ page 
   await page.reload();
   await expect(page.getByText('Added to My Fridge')).toBeVisible();
   await page.goto('/recipes/recipe-mushroom-pasta');
-  await expect(page.getByText('Everything you need', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('No shopping needed', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Start cooking' }).click();
   await page.getByRole('button', { name: 'Finish cooking' }).click();
   await expect(page.getByRole('heading', { name: 'Dinner done?' })).toBeVisible();
@@ -46,12 +45,12 @@ test('complete everyday product loop persists through leftovers', async ({ page 
   await expect(page.getByRole('heading', { name: 'Save the rest?' })).toBeVisible();
   await page.getByRole('button', { name: 'Save 1 for later' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Dinner is already sorted.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tomorrow’s lunch is already ready' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Mushroom Pasta' })).toBeVisible();
   await expect(page.getByText('1 portion left · Stored today')).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Dinner is already sorted.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tomorrow’s lunch is already ready' })).toBeVisible();
   await page.getByRole('link', { name: 'Fridge' }).click();
   await expect(page.getByText('Mushroom Pasta')).toBeVisible();
   await expect(page.locator('body')).not.toContainText('-1');
@@ -59,13 +58,12 @@ test('complete everyday product loop persists through leftovers', async ({ page 
 
 test('meal context suppresses cooking recommendations without hiding rescue', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Get started' }).click();
-  for (let step = 0; step < 2; step++) await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: 'Open my kitchen' }).click();
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
+  await page.getByRole('button', { name: 'Change' }).click();
   await page.getByRole('button', { name: 'Eating out' }).click();
-  await expect(page.getByRole('heading', { name: 'Enjoy your evening out.' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'One quick fridge check' })).toBeVisible();
+  await expect(page.getByText('Eating out', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /foods may be forgotten/ }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Cook this' })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Eating out' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Eating out', { exact: true })).toBeVisible();
 });

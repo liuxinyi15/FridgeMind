@@ -5,7 +5,7 @@ import type { AppData, FoodItem, ImportSource, MealContextChoice, NotificationPr
 import { taskCompletesFromEvent } from '../domain/usability';
 import { sanitiseParticipantId } from '../domain/usabilityExport';
 import { loadAppData, resetAppData, saveAppData } from '../data/repositories';
-import { createSeedData } from '../data/seed';
+import { createConsumerData, createSeedData } from '../data/seed';
 
 interface FoodDraft {
   name: string;
@@ -19,6 +19,7 @@ interface FoodDraft {
   note?: string;
   source?: ImportSource;
   category?: FoodItem['category'];
+  referenceImage?: string;
 }
 
 interface AddFoodOptions { source?: ImportSource; mergeExisting?: boolean; }
@@ -63,6 +64,8 @@ interface AppActions {
   endUsabilitySession: () => void;
   markParticipantResultsDownloaded: () => void;
   clearParticipantStudyData: () => void;
+  enterDemo: () => void;
+  leaveDemo: () => void;
   resetDemo: () => void;
 }
 
@@ -102,6 +105,7 @@ function recordUsabilityEvent(current: AppData, type: UsabilityEventType, metada
 
 function createUsabilityFixture(taskId: UsabilityTaskId, current: AppData): AppData {
   const fixture = createSeedData();
+  fixture.experienceMode = 'research';
   fixture.recipes = fixture.recipes.filter((recipe) => v02RecipeIds.has(recipe.id));
   fixture.savedRecipes = fixture.savedRecipes.filter((saved) => v02RecipeIds.has(saved.recipeId));
   fixture.profile.onboardingComplete = true;
@@ -181,6 +185,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         canonicalName,
         kind: 'ingredient',
         category: draft.category,
+        referenceImage: draft.referenceImage,
         batches: [{
           id: batchId,
           physicalStock: draft.quantityMode === 'unknown' ? null : draft.quantity,
@@ -201,6 +206,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const inventory = existing && options.mergeExisting
         ? current.inventory.map((food) => food.id !== existing.id ? food : {
           ...food,
+          referenceImage: draft.referenceImage ?? food.referenceImage,
           batches: food.batches.map((batch, index) => {
             if (index) return batch;
             const canAddExactly = batch.quantityMode === 'exact' && draft.quantityMode === 'exact' && batch.unit === draft.unit && batch.physicalStock !== null && draft.quantity !== null;
@@ -210,7 +216,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           }),
         })
         : existing
-          ? current.inventory.map((food) => food.id === existing.id ? { ...food, batches: [...food.batches, item.batches[0]] } : food)
+          ? current.inventory.map((food) => food.id === existing.id ? { ...food, referenceImage: draft.referenceImage ?? food.referenceImage, batches: [...food.batches, item.batches[0]] } : food)
         : [...current.inventory, item];
       const updated = { ...current, inventory, inventoryEvents: [...current.inventoryEvents, { id: id('event'), foodId: existing?.id ?? item.id, type: options.mergeExisting ? 'merged' as const : 'added' as const, amount: draft.quantity ?? undefined, unit: draft.unit, at: new Date().toISOString(), note: `Added from ${source}` }] };
       const boughtDuplicateAttempt = current.shopping.some((shoppingItem) => shoppingItem.bought && !shoppingItem.addedToFridge && shoppingItem.canonicalName === canonicalName);
@@ -426,6 +432,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     updateNotifications: (change) => setData((current) => ({ ...current, profile: { ...current.profile, notifications: { ...current.profile.notifications, ...change } } })),
     setResearchScenario: (researchScenario) => setData((current) => {
       const fixture = createSeedData();
+      fixture.experienceMode = 'research';
       if (!researchScenario.startsWith('V3-')) {
         fixture.recipes = fixture.recipes.filter((recipe) => v02RecipeIds.has(recipe.id));
         fixture.savedRecipes = fixture.savedRecipes.filter((saved) => v02RecipeIds.has(saved.recipeId));
@@ -598,11 +605,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     clearParticipantStudyData: () => setData((current) => {
       const participantSessionIds = new Set(current.usabilitySessions.filter((session) => session.mode === 'participant').map((session) => session.id));
       const seed = createSeedData();
+      seed.experienceMode = 'research';
       seed.profile.onboardingComplete = current.profile.onboardingComplete;
       seed.usabilitySessions = current.usabilitySessions.filter((session) => !participantSessionIds.has(session.id));
       seed.currentUsabilitySessionId = current.currentUsabilitySessionId && !participantSessionIds.has(current.currentUsabilitySessionId) ? current.currentUsabilitySessionId : undefined;
       seed.participantStudySessionId = undefined;
       return seed;
+    }),
+    enterDemo: () => setData(() => {
+      const demo = createSeedData();
+      demo.profile.onboardingComplete = true;
+      demo.experienceMode = 'demo';
+      return demo;
+    }),
+    leaveDemo: () => setData(() => {
+      const consumer = createConsumerData();
+      consumer.profile.onboardingComplete = true;
+      return consumer;
     }),
     resetDemo: () => setData(resetAppData()),
   }), []);

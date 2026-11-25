@@ -42,7 +42,7 @@ export function RecipeDetailPage() {
     actions.resolveIngredientAmount(checking.inventoryItem.id, checking.ingredient.quantity, answer);
     setChecking(null);
   };
-  const availabilityLabel = availability === 'READY' ? 'Everything you need' : availability === 'READY_WITH_UNCERTAINTY' ? `Check ${uncertain.length} item${uncertain.length === 1 ? '' : 's'}` : availability === 'MISSING_ITEMS' ? `Missing ${missing} ingredient${missing === 1 ? '' : 's'}` : 'Not practical today';
+  const availabilityLabel = availability === 'READY' ? 'No shopping needed' : availability === 'READY_WITH_UNCERTAINTY' ? `Check ${uncertain.length} item${uncertain.length === 1 ? '' : 's'}` : availability === 'MISSING_ITEMS' ? `Missing ${missing} ingredient${missing === 1 ? '' : 's'}` : 'Not practical today';
   const isSaved = data.savedRecipes.some((entry) => entry.recipeId === recipe.id);
 
   return <div className="page-stack recipe-detail-page">

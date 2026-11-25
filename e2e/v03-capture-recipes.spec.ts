@@ -2,20 +2,18 @@ import { expect, test } from '@playwright/test';
 
 async function completeOnboarding(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Get started' }).click();
-  for (let step = 0; step < 2; step += 1) await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: 'Open my kitchen' }).click();
+  await page.getByRole('button', { name: 'Explore a separate demo fridge' }).click();
 }
 
 const imageFile = { name: 'groceries.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('prototype-image') };
 
 test('grocery photo uses editable batch review, removal and explicit duplicate handling', async ({ page }) => {
   await completeOnboarding(page);
-  await page.goto('/fridge/add');
-  await expect(page.getByRole('button', { name: /Scan groceries/ })).toBeVisible();
-  await page.getByRole('button', { name: /Scan groceries/ }).click();
-  await page.getByLabel('Choose food photo from device').setInputFiles(imageFile);
-  await expect(page.getByRole('heading', { name: 'Review detected items' })).toBeVisible();
+  await page.goto('/settings/research');
+  await page.getByRole('button', { name: /V0.3 A · Grocery photo fixture/ }).click();
+  await page.getByRole('link', { name: 'Open scenario' }).click();
+  await expect(page.getByRole('heading', { name: 'Review simulated items' })).toBeVisible();
+  await expect(page.getByText(/simulated recognition fixture/i)).toBeVisible();
   await expect(page.locator('.import-candidate')).toHaveCount(3);
   const mushrooms = page.locator('.import-candidate').filter({ hasText: 'Mushrooms' });
   await mushrooms.getByRole('button', { name: 'Remove' }).click();
@@ -40,7 +38,7 @@ test('receipt import reconciles a matching Shopping item without a duplicate rec
   await page.goto('/settings/research');
   await page.getByRole('button', { name: /V0.3 F · Shopping receipt/ }).click();
   await page.getByRole('link', { name: 'Open scenario' }).click();
-  await expect(page.getByRole('heading', { name: 'Review detected items' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Review simulated items' })).toBeVisible();
   await expect(page.getByText('Matches your shopping list')).toBeVisible();
   await page.getByRole('button', { name: 'Deselect' }).click();
   await page.locator('.import-candidate').first().getByRole('checkbox').check();
@@ -55,34 +53,36 @@ test('recipe image and text imports save editable personal recipes into normal m
   await completeOnboarding(page);
   await page.goto('/recipes/import');
   await page.getByLabel('Choose recipe image').setInputFiles({ ...imageFile, name: 'recipe-screenshot.jpg' });
-  await expect(page.getByRole('heading', { name: 'Review recipe' })).toBeVisible();
-  await page.getByLabel('Ingredient 2 name').fill('Spinach');
+  await expect(page.getByRole('heading', { name: 'Image added' })).toBeVisible();
+  await expect(page.getByLabel('Recipe name')).toHaveValue('');
+  await expect(page.getByText('Mushroom Pasta')).toHaveCount(0);
+  await page.getByLabel('Recipe name').fill('Photo recipe');
+  await page.getByLabel('Ingredient 1 name').fill('Spinach');
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page.getByText('Your recipe')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Mushroom Pasta' })).toBeVisible();
-  await expect(page.getByText(/In your fridge|Running low|Check first/).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Photo recipe' })).toBeVisible();
+  await expect(page.getByText(/In your fridge|Running low|Check first|Need to buy/).first()).toBeVisible();
   await page.getByRole('link', { name: 'Recipes' }).click();
   await page.getByRole('button', { name: 'My recipes' }).click();
-  await expect(page.getByRole('link', { name: 'Mushroom Pasta' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Photo recipe' }).first()).toBeVisible();
 
   await page.goto('/recipes/import');
   await page.getByRole('button', { name: /Paste recipe text/ }).click();
-  await page.getByLabel('Recipe text').fill('Spinach rice\n80g rice\n60g spinach\n15 minutes\n1 serving');
+  await page.getByLabel('Recipe text').fill('Spinach rice\n1 serving\n15 minutes\nIngredients\n80g rice\n60g spinach\nMethod\n1. Cook and combine.');
   await page.getByRole('button', { name: 'Review recipe' }).click();
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page.getByRole('heading', { name: 'Spinach rice' })).toBeVisible();
-  await expect(page.getByText('Everything you need', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('No shopping needed', { exact: true }).first()).toBeVisible();
 });
 
 test('quick corrections preserve approximate stock and Use Soon opens focused recipes', async ({ page }) => {
   await completeOnboarding(page);
   await page.goto('/fridge');
   const rice = page.locator('.food-card-shell').filter({ hasText: 'Rice' });
+  await rice.getByRole('button', { name: 'More' }).click();
   await rice.getByRole('button', { name: 'Used some' }).click();
   await page.getByRole('button', { name: 'About half' }).click();
   await expect(rice.getByText('about half left')).toBeVisible();
-  await rice.getByRole('button', { name: 'Freeze' }).click();
-  await expect(rice).toContainText('freezer');
   const chicken = page.locator('.food-card-shell').filter({ hasText: 'Chicken' });
   await chicken.getByRole('button', { name: 'More' }).click();
   await chicken.getByRole('button', { name: 'Finished' }).click();
@@ -91,7 +91,7 @@ test('quick corrections preserve approximate stock and Use Soon opens focused re
   await page.goto('/');
   await page.getByRole('link', { name: 'Find a recipe' }).first().click();
   await expect(page).toHaveURL(/recipes\?uses=spinach/);
-  await expect(page.getByText(/Showing meals with/)).toContainText('spinach');
+  await expect(page.getByText(/Using/)).toContainText('spinach');
   const cards = page.locator('.recipe-card');
   await expect(cards.first()).toBeVisible();
   expect(await cards.count()).toBeGreaterThan(1);

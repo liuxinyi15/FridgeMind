@@ -34,7 +34,7 @@ describe('recommendation scoring', () => {
     const spinachPasta = data.recipes.find((item) => item.id === 'recipe-spinach-pasta')!;
     const score = scoreRecipe(spinachPasta, data.inventory, 2, data.savedRecipes);
     expect(score.useSoonCoverage).toBeGreaterThan(0);
-    expect(score.reasons.join(' ')).toContain('used soon');
+    expect(score.reasons.join(' ')).toContain('needs attention');
     expect(score.score).toBeGreaterThan(0.4);
   });
 

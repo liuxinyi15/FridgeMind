@@ -1,77 +1,59 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { rankRecipes } from '../domain/recommendationEngine';
 import type { MealContextChoice } from '../domain/types';
 import { useAppState } from '../state/AppState';
 import { RecipeCard } from '../components/RecipeCard';
 import { UseSoonCard } from '../components/UseSoonCard';
-import { HabitInsight } from '../components/HabitInsight';
 import { Icon } from '../components/Icon';
 
-const todayKey = (now = new Date()) => {
-  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-};
+const todayKey = (now = new Date()) => [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
 
 export function TodayPage() {
   const { data, actions } = useAppState();
+  const [changingContext, setChangingContext] = useState(false);
   const productNow = data.researchNow ? new Date(data.researchNow) : new Date();
   const context = data.mealContexts.find((entry) => entry.date === todayKey(productNow))?.choice ?? 'not_sure';
   const awayActive = data.awayMode.active && (!data.awayMode.until || data.awayMode.until >= todayKey(productNow));
   const recommendations = rankRecipes(data.recipes, data.inventory, data.profile.routine.typicalServings, data.savedRecipes, {
-    cookingFrequency: data.profile.routine.cookingFrequency,
-    mealContext: context,
-    activity: data.activity,
-    feedback: data.recommendationFeedback,
-    substitutions: data.substitutions,
+    cookingFrequency: data.profile.routine.cookingFrequency, mealContext: context, activity: data.activity,
+    feedback: data.recommendationFeedback, substitutions: data.substitutions,
   });
+  const readyNow = recommendations.filter((entry) => entry.availability === 'READY');
   const leftovers = data.inventory.filter((item) => item.kind === 'leftover' && (item.portions ?? 0) > 0);
-  const useSoon = data.inventory.find((item) => item.kind !== 'leftover' && item.batches.some((batch) => batch.state === 'use_soon'));
-  const intervention = useSoon ? data.interventions.find((item) => item.foodId === useSoon.id) ?? data.interventions[0] : undefined;
+  const attention = data.inventory.filter((item) => item.kind !== 'leftover' && item.batches.some((batch) => batch.state === 'use_soon'));
+  const firstAttention = attention[0];
+  const intervention = firstAttention ? data.interventions.find((item) => item.foodId === firstAttention.id) : undefined;
+  const isNew = data.inventory.length === 0 && !data.recipes.some((recipe) => recipe.ownership === 'personal') && !data.activity.length;
 
-  return (
-    <div className="page-stack today-page">
-      <section className="welcome-block">
-        <span className="overline">Good evening, {data.profile.name}</span>
-        <h1>{awayActive ? 'Before you go.' : context === 'eating_out' ? 'Enjoy your evening out.' : leftovers.length ? 'Dinner is already sorted.' : 'Dinner, sorted.'}</h1>
-        <p>{awayActive ? 'Urgent food stays visible; routine meal prompts are paused.' : context === 'eating_out' ? 'No cooking nudge — only food that may need a quick plan.' : 'Here’s the easiest realistic win from your fridge.'}</p>
-        <div className="meal-context" role="group" aria-label="Tonight's plan">
-          {([
-            ['cooking', 'Cooking tonight'],
-            ['eating_out', 'Eating out'],
-            ['not_sure', 'Not sure'],
-          ] as [MealContextChoice, string][]).map(([value, label]) => <button key={value} aria-pressed={context === value} onClick={() => actions.setMealContext(value)}>{label}</button>)}
-        </div>
-      </section>
+  return <div className="page-stack today-page">
+    <section className="welcome-block compact-welcome"><span className="overline">Today</span><h1>{isNew ? 'Start with something useful.' : attention.length ? `${attention.length} ${attention.length === 1 ? 'food may' : 'foods may'} be forgotten.` : leftovers.length ? 'A meal is already prepared.' : 'Your food, at a glance.'}</h1><div className="tonight-control"><span>Tonight</span><strong>{contextLabel(context)}</strong><button className="text-button" onClick={() => setChangingContext((value) => !value)}>{changingContext ? 'Done' : 'Change'}</button></div>{changingContext && <div className="meal-context" role="group" aria-label="Tonight's plan">{([['cooking', 'Cooking tonight'], ['eating_out', 'Eating out'], ['not_sure', 'Not sure']] as [MealContextChoice, string][]).map(([value, label]) => <button key={value} aria-pressed={context === value} onClick={() => { actions.setMealContext(value); setChangingContext(false); }}>{label}</button>)}</div>}</section>
 
-      {awayActive && <section className="away-summary"><div><span className="overline">Away mode</span><h2>{data.inventory.filter((item) => item.batches.some((batch) => batch.state === 'use_soon')).length} foods may need attention</h2><p>Meal reminders are paused{data.awayMode.until ? ' until ' + new Date(data.awayMode.until + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}.</p></div><button className="button secondary" onClick={() => actions.setAwayMode(false)}>I’m back</button></section>}
+    {isNew ? <section className="empty-state new-user-empty"><Icon name="leaf" size={32} /><h2>What would help first?</h2><div className="empty-choice-grid"><Link className="button primary" to="/fridge/add">Add what you bought</Link><Link className="button secondary" to="/recipes/import">Add a recipe you like</Link><Link className="button ghost" to="/recipes">Explore ideas</Link></div></section> : <>
+      <section className="today-metrics" aria-label="Today summary"><article><strong>{attention.length}</strong><span>{attention.length === 1 ? 'food needs attention' : 'foods need attention'}</span></article><article><strong>{readyNow.length}</strong><span>{readyNow.length === 1 ? 'meal without shopping' : 'meals without shopping'}</span></article><article><strong>{leftovers.reduce((sum, item) => sum + (item.portions ?? 0), 0)}</strong><span>{leftovers.length === 1 ? 'meal already prepared' : 'meals already prepared'}</span></article></section>
 
-      {useSoon && intervention && context !== 'eating_out' && <section className="today-value-section" aria-labelledby="attention-title"><div className="section-heading"><div><span className="overline">What needs attention</span><h2 id="attention-title">Use soon</h2></div></div><UseSoonCard food={useSoon} intervention={intervention} /></section>}
-      {context === 'eating_out' && useSoon && <section className="calm-context-card"><Icon name="snowflake" size={24} /><div><span className="overline">What needs attention</span><h2>One quick fridge check</h2><p>{useSoon.name} may need attention. Freeze or store it if that suits the food and its label.</p><Link className="text-button" to={`/recipes?uses=${useSoon.canonicalName}`}>Find a recipe</Link></div><button className="button secondary" onClick={() => actions.handleFood(useSoon.id, 'frozen')}>I froze it</button></section>}
+      {awayActive && <section className="away-summary"><div><span className="overline">Away mode</span><h2>{attention.length} foods may need attention</h2><p>Meal prompts are paused.</p></div><button className="button secondary" onClick={() => actions.setAwayMode(false)}>I’m back</button></section>}
 
-      {!awayActive && context !== 'eating_out' && leftovers.length > 0 && <section className="leftover-hero">
-        <div className="leftover-icon"><Icon name="servings" size={26} /></div>
-        <div><span className="overline">Already sorted</span><h2>{leftovers[0].name}</h2><p>{leftovers[0].portions} {leftovers[0].portions === 1 ? 'portion' : 'portions'} left · {storedLabel(leftovers[0].cookedAt, productNow)}</p></div>
-        <button className="button primary" onClick={() => actions.consumeLeftover(leftovers[0].id)}>Eat 1 portion</button>
-      </section>}
+      {attention.length > 0 && <section className="today-value-section" aria-labelledby="attention-title"><div className="section-heading"><div><span className="overline">Needs attention</span><h2 id="attention-title">{attention.length} {attention.length === 1 ? 'food may' : 'foods may'} be forgotten</h2></div></div>{firstAttention && intervention ? <UseSoonCard food={firstAttention} intervention={intervention} /> : firstAttention && <AttentionRow name={firstAttention.name} canonicalName={firstAttention.canonicalName} foodId={firstAttention.id} />}{attention.slice(1).map((food) => <AttentionRow key={food.id} name={food.name} canonicalName={food.canonicalName} foodId={food.id} />)}</section>}
 
-      {!awayActive && context !== 'eating_out' && !leftovers.length && <section aria-labelledby="suggestions-heading" className="today-recommendations">
-        <div className="section-heading"><div><span className="overline">What can I make</span><h2 id="suggestions-heading">Best matches</h2></div></div>
-        {recommendations[0] && <RecipeCard recommendation={recommendations[0]} featured />}
-        {recommendations.length > 1 && <div className="more-ideas"><div className="section-heading"><h2>More easy ideas</h2><span>{data.profile.routine.typicalServings} portions</span></div><div className="recipe-list horizontal">{recommendations.slice(1, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div></div>}
-        {!recommendations.length && <div className="empty-state"><h2>No strong match right now</h2><p>Check your fridge information or browse recipes when you feel like cooking.</p><Link className="button secondary" to="/recipes">Browse recipes</Link></div>}
-      </section>}
+      {!awayActive && leftovers.length > 0 && <section aria-labelledby="sorted-title"><div className="section-heading"><div><span className="overline">Already sorted</span><h2 id="sorted-title">Tomorrow’s lunch is already ready</h2></div></div>{leftovers.map((leftover) => <article className="leftover-hero" key={leftover.id}><div className="leftover-icon"><Icon name="servings" size={26} /></div><div><h3>{leftover.name}</h3><p>{leftover.portions} {leftover.portions === 1 ? 'portion' : 'portions'} left · {storedLabel(leftover.cookedAt, productNow)}</p></div><button className="button secondary" onClick={() => actions.consumeLeftover(leftover.id)}>Eat 1 portion</button></article>)}</section>}
 
-      {!awayActive && data.profile.notifications.habitSuggestions && data.habits[0] && <HabitInsight habit={data.habits[0]} />}
-    </div>
-  );
+      {!awayActive && context !== 'eating_out' && <section className="today-recommendations" aria-labelledby="no-shop-title"><div className="section-heading"><div><span className="overline">Cook without shopping</span><h2 id="no-shop-title">{readyNow.length} {readyNow.length === 1 ? 'dinner' : 'dinners'} you can make without shopping</h2></div><Link className="text-button" to="/recipes">See recipes</Link></div>{readyNow.length ? <div className="recipe-list recipe-grid today-ready-grid">{readyNow.slice(0, 3).map((recommendation, index) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} featured={index === 0 && attention.length === 0 && leftovers.length === 0} />)}</div> : <div className="quiet-card"><strong>No confirmed no-shop meal yet</strong><p>Add what you have, or check an uncertain amount when a recipe needs it.</p></div>}</section>}
+      {data.experienceMode === 'research' && recommendations.some((entry) => entry.availability !== 'READY') && <section aria-label="Research fixture recipe options"><div className="section-heading"><div><span className="overline">Research fixture</span><h2>Other meal options</h2></div></div><div className="recipe-list recipe-grid">{recommendations.filter((entry) => entry.availability !== 'READY').slice(0, 3).map((recommendation) => <RecipeCard key={recommendation.recipe.id} recommendation={recommendation} />)}</div></section>}
+    </>}
+  </div>;
 }
+
+function AttentionRow({ name, canonicalName, foodId }: { name: string; canonicalName: string; foodId: string }) {
+  const { actions } = useAppState();
+  return <article className="attention-row"><div><strong>{name}</strong><span>Use soon</span></div><Link to={`/recipes?uses=${canonicalName}`}>Find a meal</Link><button onClick={() => actions.handleFood(foodId, 'used')}>I used it</button><Link to={`/fridge/${foodId}`}>Check options</Link></article>;
+}
+
+function contextLabel(context: MealContextChoice) { return context === 'cooking' ? 'Cooking' : context === 'eating_out' ? 'Eating out' : 'Not sure'; }
 
 function storedLabel(cookedAt: string | undefined, now: Date) {
   if (!cookedAt) return 'Stored recently';
-  const cooked = new Date(cookedAt);
-  const cookedDay = new Date(cooked.getFullYear(), cooked.getMonth(), cooked.getDate()).getTime();
-  const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const days = Math.round((currentDay - cookedDay) / 86_400_000);
-  if (days === 0) return 'Stored today';
-  if (days === 1) return 'Stored yesterday';
-  return `Stored ${days} days ago`;
+  const cooked = new Date(cookedAt); const cookedDay = new Date(cooked.getFullYear(), cooked.getMonth(), cooked.getDate()).getTime();
+  const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(); const days = Math.round((currentDay - cookedDay) / 86_400_000);
+  if (days === 0) return 'Stored today'; if (days === 1) return 'Stored yesterday'; return `Stored ${days} days ago`;
 }
