@@ -14,7 +14,7 @@ test('capture polished mobile redesign', async ({ page }) => {
   await page.screenshot({ path: output('04_fridge') });
   await page.getByRole('link', { name: 'Add food' }).click();
   await page.screenshot({ path: output('05_add_food') });
-  await page.getByRole('button', { name: /Photo \+ item names/ }).click();
+  await page.getByRole('button', { name: /Scan package/ }).click();
   await page.getByRole('button', { name: 'Take a photo' }).click();
   await expect(page.getByRole('dialog', { name: 'Open your camera?' })).toBeVisible();
   await page.screenshot({ path: output('06_photo_permission') });

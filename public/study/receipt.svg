@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+  <rect width="800" height="1200" fill="#ece8df"/>
+  <rect x="95" y="45" width="610" height="1110" rx="8" fill="#fff"/>
+  <g fill="#111" font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <text x="400" y="135" font-size="42" font-weight="700">TESCO</text>
+    <text x="400" y="195" font-size="22">THANK YOU FOR SHOPPING</text>
+  </g>
+  <g fill="#111" font-family="Courier New, monospace" font-size="32">
+    <text x="145" y="310">MUSHROOMS 250G</text>
+    <text x="145" y="385">BABY SPINACH</text>
+    <text x="145" y="460">CHICKEN BREAST 500G</text>
+    <text x="145" y="535">PENNE PASTA 500G</text>
+    <text x="145" y="690">TOTAL</text>
+    <text x="565" y="690">9.40</text>
+  </g>
+  <path d="M135 625h530" stroke="#111" stroke-width="3" stroke-dasharray="9 8"/>
+</svg>

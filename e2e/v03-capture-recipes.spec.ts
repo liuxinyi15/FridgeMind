@@ -24,7 +24,7 @@ test('grocery photo uses editable batch review, removal and explicit duplicate h
   await chicken.getByLabel('Add as new purchase').check();
   const spinach = page.locator('.import-candidate').filter({ hasText: /already have spinach/i });
   await spinach.getByLabel('Merge with existing stock').check();
-  await page.getByRole('button', { name: 'Add 2 items' }).click();
+  await page.getByRole('button', { name: 'Add 2 foods' }).click();
   await expect(page.getByText('2 items added to your fridge.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Spinach' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Chicken' })).toBeVisible();
@@ -42,7 +42,7 @@ test('receipt import reconciles a matching Shopping item without a duplicate rec
   await expect(page.getByText('Matches your shopping list')).toBeVisible();
   await page.getByRole('button', { name: 'Deselect' }).click();
   await page.locator('.import-candidate').first().getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Add 1 item' }).click();
+  await page.getByRole('button', { name: 'Add 1 food' }).click();
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fridgemind:v0.1:data')!));
   expect(stored.inventory.find((item: { canonicalName: string }) => item.canonicalName === 'mushroom').batches.some((batch: { quantityMode: string; source: string }) => batch.quantityMode === 'unknown' && batch.source === 'shopping')).toBe(true);
   await page.getByRole('link', { name: 'Shopping' }).click();
@@ -53,9 +53,9 @@ test('recipe image and text imports save editable personal recipes into normal m
   await completeOnboarding(page);
   await page.goto('/recipes/import');
   await page.getByLabel('Choose recipe image').setInputFiles({ ...imageFile, name: 'recipe-screenshot.jpg' });
-  await expect(page.getByRole('heading', { name: 'Image added' })).toBeVisible();
-  await expect(page.getByLabel('Recipe name')).toHaveValue('');
+  await expect(page.getByRole('heading', { name: /couldn’t read enough text/i })).toBeVisible();
   await expect(page.getByText('Mushroom Pasta')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Create manually' }).click();
   await page.getByLabel('Recipe name').fill('Photo recipe');
   await page.getByLabel('Ingredient 1 name').fill('Spinach');
   await page.getByRole('button', { name: 'Save recipe' }).click();

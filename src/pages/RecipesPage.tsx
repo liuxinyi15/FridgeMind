@@ -36,7 +36,7 @@ export function RecipesPage() {
       <section className="personal-recipe-section" aria-labelledby="my-recipes-title"><div className="recipe-library-heading"><div><span className="overline">Recipes you trust</span><h2 id="my-recipes-title">My recipes</h2></div><Link className="text-button" to="/recipes/import">Add recipe</Link></div>{personal.length ? <div className="recipe-list recipe-grid">{personal.map((entry) => <RecipeCard key={entry.recipe.id} recommendation={entry} />)}</div> : <div className="empty-state compact personal-empty"><Icon name="recipes" size={28} /><h3>Add a recipe you already like</h3><p>Paste the text and FridgeMind will structure it for review.</p><Link className="button primary" to="/recipes/import">Add a recipe</Link></div>}</section>
       {saved.length > 0 && <RecipeSection title="Saved" entries={saved.slice(0, 4)} />}
       {data.inventory.length > 0 && <RecipeSection title="Cook without shopping" subtitle={`${scoped.filter((entry) => entry.availability === 'READY').length} meals use only confirmed food`} entries={scoped.filter((entry) => entry.availability === 'READY').slice(0, 4)} />}
-      <RecipeSection title="Ideas for your fridge" subtitle="Built-in ideas stay secondary to your own recipes" entries={builtIn.slice(0, 8)} />
+      <RecipeSection title={data.inventory.length ? 'Ideas for your fridge' : 'Simple ideas to explore'} subtitle="Built-in ideas stay secondary to your own recipes" entries={builtIn.slice(0, 8)} />
     </>}
   </div>;
 }

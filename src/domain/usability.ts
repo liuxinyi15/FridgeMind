@@ -13,63 +13,63 @@ export interface UsabilityTaskDefinition {
 export const usabilityTasks: UsabilityTaskDefinition[] = [
   {
     id: 'task-1',
-    title: 'Decide what to cook',
-    scenario: 'Evening; mushrooms and spinach need attention, and cream quantity is unknown.',
-    prompt: "You've just got home and want to make dinner. Use FridgeMind to decide what you would make.",
-    success: 'A recipe is opened, or the participant explicitly chooses not to cook.',
+    title: 'Activation',
+    scenario: 'A genuine empty first run with built-in ideas but no personal food or recipes.',
+    prompt: "You've just started using FridgeMind. Set it up so that it could help you decide what to eat later.",
+    success: 'Food is parsed, a recipe import reaches review, or an idea is meaningfully explored.',
     startPath: '/',
-    capture: ['Recipe opened', 'Explanation opened', 'Meal context changed', 'Steps', 'Backtracking'],
+    capture: ['Activation choice', 'Value comprehension', 'Where they begin', 'Backtracking'],
   },
   {
     id: 'task-2',
-    title: 'Handle uncertain stock',
-    scenario: 'Mushroom Pasta requires cream; cream exists but its quantity is unknown.',
-    prompt: 'Continue preparing this meal.',
-    success: 'The cream uncertainty is resolved and recipe feasibility becomes clear.',
-    startPath: '/recipes/recipe-mushroom-pasta',
-    capture: ['Prompt response', 'Cancellation/backtracking', 'Manual fridge edit'],
+    title: 'Low-friction food entry',
+    scenario: 'The participant has just bought spinach, mushrooms, chicken and pasta.',
+    prompt: "You've just bought spinach, mushrooms, chicken and pasta. Add enough information for FridgeMind to be useful later.",
+    success: 'Quick Add parses the foods for review.',
+    startPath: '/fridge/add',
+    capture: ['Quick Add discovery', 'Details entered', 'Unknown quantity acceptance', 'Perceived burden'],
   },
   {
     id: 'task-3',
-    title: 'Resolve a missing ingredient',
-    scenario: 'Mushroom Pasta has one genuine shopping gap.',
-    prompt: 'You still want to make this meal. Work out what you need to buy.',
-    success: 'The missing item reaches Shopping.',
-    startPath: '/recipes/recipe-mushroom-pasta',
-    capture: ['Missing-state understanding', 'Ingredients opened', 'Add missing items', 'Duplicate attempts'],
+    title: 'Personal recipe import',
+    scenario: 'A readable Creamy Spinach Pasta screenshot is provided inside the import flow.',
+    prompt: 'This is a recipe you already like. Add it to FridgeMind.',
+    success: 'OCR output reaches structured review.',
+    startPath: '/recipes/import',
+    capture: ['OCR discovery', 'Review and correction', 'Fallback behaviour', 'Perceived effort'],
   },
   {
     id: 'task-4',
-    title: 'Add purchased food back',
-    scenario: 'The missing mushrooms have supposedly been purchased.',
-    prompt: "You've returned from the shop. Update FridgeMind.",
-    success: 'The purchased item is reconciled into inventory.',
+    title: 'No-shopping decision',
+    scenario: 'The fridge and a personal Mushroom Pasta recipe form a genuinely READY match.',
+    prompt: "You don't want to buy anything else tonight. Find something you could make with what you already have.",
+    success: 'A READY recipe is opened.',
     startPath: '/',
-    capture: ['Route taken', 'Purchased amount understanding', 'Manual duplicate attempt', 'Amount edited'],
+    capture: ['Today discovery', 'No-shopping semantics', 'Personal recipe visibility', 'Meal choice'],
   },
   {
     id: 'task-5',
-    title: 'Cook and update inventory',
-    scenario: 'Mushroom Pasta is feasible for two portions.',
-    prompt: "Now cook the meal and tell FridgeMind when you're done.",
-    success: 'The cooking session completes and inventory updates.',
-    startPath: '/recipes/recipe-mushroom-pasta',
-    capture: ['Start cooking', 'Instructions expectation', 'Completion understanding', 'Recipe correction'],
+    title: 'Food attention',
+    scenario: 'Spinach is visibly in Needs attention with rescue and handling options.',
+    prompt: 'One of your foods may be forgotten soon. Decide what you would do.',
+    success: 'A rescue recipe is opened or the food is handled.',
+    startPath: '/',
+    capture: ['Attention discovery', 'Recipe rescue', 'Storage option', 'Dismissal or handling'],
   },
   {
     id: 'task-6',
-    title: 'Save leftovers',
-    scenario: 'Mushroom Pasta makes two portions.',
-    prompt: "You've eaten one portion and want to keep the other for tomorrow.",
-    success: 'One leftover portion is saved.',
+    title: 'Cooking loop',
+    scenario: 'A READY personal Mushroom Pasta recipe makes two portions.',
+    prompt: "You've chosen dinner. Use FridgeMind while you make it and keep the app up to date when you're finished.",
+    success: 'Cooking completes and inventory is updated, with the leftover choice observed.',
     startPath: '/recipes/recipe-mushroom-pasta',
-    capture: ['Leftover action discovery', '1 now + 1 later understanding', 'Manual leftover expectation'],
+    capture: ['Cooking start', 'Uncertainty', 'Completion', 'Deduction', 'Leftover creation'],
   },
   {
     id: 'task-7',
     title: 'Return the next day',
-    scenario: 'Research date advances by one day; one Mushroom Pasta portion is in the fridge.',
-    prompt: "It's the next evening. Decide what to eat.",
+    scenario: 'Research date advances by one day; a leftover and personal recipes are available.',
+    prompt: "It's the next day. Use FridgeMind to decide what makes sense for your next meal.",
     success: 'The participant selects or explicitly recognises the existing leftover.',
     startPath: '/',
     capture: ['Leftover priority understanding', 'Direct Recipes navigation', 'Today usefulness'],
@@ -104,13 +104,13 @@ export const interviewPrompts = [
   'If you could remove one step, which would it be?',
 ];
 
-export function taskCompletesFromEvent(taskId: UsabilityTaskId, type: UsabilityEventType, metadata?: UsabilityEvent['metadata']) {
-  if (taskId === 'task-1') return type === 'recipe_opened' || (type === 'meal_context_changed' && metadata?.choice === 'eating_out');
-  if (taskId === 'task-2') return type === 'uncertainty_resolved';
-  if (taskId === 'task-3') return type === 'shopping_item_added';
-  if (taskId === 'task-4') return type === 'shopping_item_reconciled';
-  if (taskId === 'task-5') return type === 'cooking_completed';
-  if (taskId === 'task-6') return type === 'leftover_saved' && metadata?.portions === 1;
+export function taskCompletesFromEvent(taskId: UsabilityTaskId, type: UsabilityEventType, _metadata?: UsabilityEvent['metadata']) {
+  if (taskId === 'task-1') return type === 'quick_add_parsed' || type === 'ocr_parse_reviewed' || type === 'recipe_opened';
+  if (taskId === 'task-2') return type === 'quick_add_parsed';
+  if (taskId === 'task-3') return type === 'ocr_parse_reviewed';
+  if (taskId === 'task-4') return type === 'recipe_opened';
+  if (taskId === 'task-5') return type === 'recipe_opened' || type === 'food_corrected';
+  if (taskId === 'task-6') return type === 'cooking_completed';
   if (taskId === 'task-7') return type === 'leftover_selected';
   return false;
 }
@@ -121,7 +121,7 @@ export function calculateTaskMetrics(run: UsabilityTaskRun, events: UsabilityEve
     const eventTime = new Date(event.at).getTime();
     return event.taskId === run.taskId && eventTime >= new Date(run.startedAt).getTime() && (!endedAt || eventTime <= new Date(endedAt).getTime());
   });
-  const interactionTypes: UsabilityEventType[] = ['primary_cta_clicked', 'secondary_cta_clicked', 'back_navigation', 'more_opened', 'recommendation_explanation_opened', 'explanatory_disclosure_opened', 'recipe_opened', 'meal_context_changed', 'uncertainty_resolved', 'food_corrected', 'shopping_item_added', 'duplicate_shopping_attempt', 'shopping_item_reconciled', 'duplicate_fridge_attempt', 'cooking_started', 'recipe_correction_opened', 'cooking_completed', 'leftover_saved', 'leftover_selected', 'dead_end_marked'];
+  const interactionTypes: UsabilityEventType[] = ['primary_cta_clicked', 'secondary_cta_clicked', 'back_navigation', 'more_opened', 'recommendation_explanation_opened', 'explanatory_disclosure_opened', 'recipe_opened', 'meal_context_changed', 'uncertainty_resolved', 'food_corrected', 'shopping_item_added', 'duplicate_shopping_attempt', 'shopping_item_reconciled', 'duplicate_fridge_attempt', 'cooking_started', 'recipe_correction_opened', 'cooking_completed', 'leftover_saved', 'leftover_selected', 'dead_end_marked', 'ocr_started', 'ocr_completed', 'ocr_returned_empty', 'ocr_text_corrected', 'ocr_parse_reviewed', 'ocr_fallback_used', 'quick_add_opened', 'quick_add_parsed', 'quick_add_item_edited', 'receipt_ocr_used', 'package_ocr_used'];
   return {
     completion: run.status === 'completed',
     interactions: taskEvents.filter((event) => interactionTypes.includes(event.type)).length,

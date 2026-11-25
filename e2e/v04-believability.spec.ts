@@ -6,27 +6,31 @@ test('new consumer starts empty and arbitrary images never fabricate content', a
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Remember what needs using/ })).toBeVisible();
   await page.getByRole('button', { name: 'Skip' }).click();
-  await expect(page.getByRole('heading', { name: 'What would help first?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose a quick start' })).toBeVisible();
+  await expect(page.getByText(/0 foods need attention|0 meals without shopping|0 meals already prepared/)).toHaveCount(0);
   const initial = await page.evaluate(() => JSON.parse(localStorage.getItem('fridgemind:v0.1:data')!));
   expect(initial.experienceMode).toBe('consumer');
   expect(initial.inventory).toEqual([]);
 
   await page.goto('/fridge/add');
-  await page.getByRole('button', { name: /Photo \+ item names/ }).click();
-  await page.getByLabel('Choose food photo from device').setInputFiles(imageFile);
-  await expect(page.getByRole('heading', { name: 'Photo added' })).toBeVisible();
-  await expect(page.getByLabel('Name')).toHaveValue('');
+  await page.getByRole('button', { name: /Scan package/ }).click();
+  await page.getByLabel('Choose image to scan').setInputFiles(imageFile);
+  await expect(page.getByRole('heading', { name: /couldn’t read enough text/i })).toBeVisible();
   await expect(page.getByText(/Spinach|Mushrooms|Chicken/)).toHaveCount(0);
-  await page.getByLabel('Name').fill('Courgette');
-  await page.getByRole('button', { name: 'Add 1 item' }).click();
-  await page.getByRole('link', { name: /Courgette/ }).click();
-  await expect(page.getByRole('img', { name: 'Grocery reference' })).toBeVisible();
-  await expect(page.getByText(/item details were added by you/)).toBeVisible();
+
+  await page.goto('/fridge/add');
+  await page.getByRole('button', { name: /Quick add foods/ }).click();
+  await page.getByLabel('Food names').fill('spinach, mushrooms; chicken\npasta');
+  await page.getByRole('button', { name: 'Review foods' }).click();
+  await expect(page.locator('.import-candidate')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Add 4 foods' }).click();
+  await expect(page.getByRole('heading', { name: 'My Fridge' })).toBeVisible();
+  await page.getByRole('link', { name: 'Today' }).click();
+  await expect(page.getByRole('heading', { name: 'Start with something useful.' })).toHaveCount(0);
 
   await page.goto('/recipes/import');
   await page.getByLabel('Choose recipe image').setInputFiles({ ...imageFile, name: 'recipe-anything.jpg' });
-  await expect(page.getByRole('heading', { name: 'Image added' })).toBeVisible();
-  await expect(page.getByLabel('Recipe name')).toHaveValue('');
+  await expect(page.getByRole('heading', { name: /couldn’t read enough text/i })).toBeVisible();
   await expect(page.getByText('Mushroom Pasta')).toHaveCount(0);
 });
 
@@ -56,18 +60,19 @@ Method
   await expect(page.getByLabel('Recipe name')).toHaveValue('Creamy mushroom pasta');
   await expect(page.getByLabel('Ingredient 5 name')).toHaveValue('garlic');
   await expect(page.getByLabel('Preparation time')).toHaveValue('25');
-  await expect(page.getByText('Original pasted text')).toBeVisible();
+  await expect(page.getByText('Original text')).toBeVisible();
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await page.getByRole('link', { name: 'Recipes' }).click();
   await expect(page.getByRole('heading', { name: 'My recipes' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Creamy mushroom pasta' }).first()).toBeVisible();
 
   await page.goto('/fridge/add');
-  await page.getByRole('button', { name: /Paste receipt text/ }).click();
+  await page.getByRole('button', { name: /Scan receipt/ }).click();
+  await page.getByRole('button', { name: /Paste receipt text instead/ }).click();
   await page.getByLabel('Receipt text').fill('TESCO\nMUSHROOMS 250G\nBABY SPINACH\nCHICKEN BREAST\nPENNE PASTA\nTOTAL £9.40');
   await page.getByRole('button', { name: 'Review items' }).click();
   await expect(page.locator('.import-candidate')).toHaveCount(4);
-  await expect(page.getByText('Amount not detected')).toHaveCount(4);
+  await expect(page.getByText('Amount unknown')).toHaveCount(3);
 });
 
 test('V0.4 core pages fit common phone widths', async ({ page }) => {

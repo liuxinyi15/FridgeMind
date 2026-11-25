@@ -1,5 +1,5 @@
 import { canonicalise } from './inventory';
-import type { Recipe, RecipeIngredient, Unit } from './types';
+import type { QuantityMode, Recipe, RecipeIngredient, StorageLocation, Unit } from './types';
 
 const unitAliases: Record<string, { unit: Unit; multiplier?: number }> = {
   g: { unit: 'g' }, gram: { unit: 'g' }, grams: { unit: 'g' }, kg: { unit: 'g', multiplier: 1000 },
@@ -112,4 +112,113 @@ export function parseReceiptText(text: string): string[] {
     if (alias && !names.includes(alias[1])) names.push(alias[1]);
   }
   return names;
+}
+
+export interface ParsedFoodText {
+  name: string;
+  quantity: number | null;
+  quantityMode: QuantityMode;
+  unit: Unit;
+  storage: StorageLocation;
+}
+
+const cupboardFoods = /\b(pasta|rice|bread|flour|lentils?|beans?|chickpeas?|cereal|oats?)\b/i;
+const freezerFoods = /\b(frozen|ice cream)\b/i;
+const knownBrandOrReceiptLine = /^(tesco|sainsbury(?:'s)?|waitrose|aldi|lidl|morrisons|asda|co-op|receipt|subtotal|total|vat|card|cash|change)\b/i;
+
+function titleCase(value: string) {
+  return value.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function storageFor(name: string): StorageLocation {
+  if (freezerFoods.test(name)) return 'freezer';
+  if (cupboardFoods.test(name)) return 'cupboard';
+  return 'fridge';
+}
+
+function normaliseMeasuredAmount(amount: number, rawUnit: string): Pick<ParsedFoodText, 'quantity' | 'unit' | 'quantityMode'> {
+  const unit = rawUnit.toLowerCase();
+  if (unit === 'kg') return { quantity: amount * 1000, unit: 'g', quantityMode: 'exact' };
+  if (unit === 'l' || unit === 'litre' || unit === 'litres') return { quantity: amount * 1000, unit: 'ml', quantityMode: 'exact' };
+  return { quantity: amount, unit: unit.startsWith('ml') ? 'ml' : 'g', quantityMode: 'exact' };
+}
+
+/** Lightweight, forgiving multi-food parser. Unrecognised amounts never reject the name. */
+export function parseQuickAddText(text: string): ParsedFoodText[] {
+  const parsed: ParsedFoodText[] = [];
+  const seen = new Set<string>();
+  for (const raw of text.split(/[,;\n]+/)) {
+    let value = raw.trim().replace(/\s+/g, ' ');
+    if (!value) continue;
+    let quantity: number | null = null;
+    let quantityMode: QuantityMode = 'unknown';
+    let unit: Unit = 'item';
+    const measured = value.match(/^(.*?)(\d+(?:[.,]\d+)?)\s*(kg|g|grams?|l|litres?|ml)\b\s*$/i);
+    const counted = value.match(/^(\d+)\s+(?:x\s*)?(.+)$/i);
+    if (measured?.[1].trim()) {
+      value = measured[1].trim();
+      ({ quantity, quantityMode, unit } = normaliseMeasuredAmount(Number(measured[2].replace(',', '.')), measured[3]));
+    } else if (counted) {
+      value = counted[2].trim();
+      quantity = Number(counted[1]);
+      quantityMode = 'exact';
+      unit = 'item';
+    }
+    const name = titleCase(value.replace(/\s+(?:pack|packet)$/i, '').trim());
+    const key = canonicalise(name);
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    parsed.push({ name, quantity, quantityMode, unit, storage: storageFor(name) });
+  }
+  return parsed;
+}
+
+function amountFromProductLine(line: string) {
+  const measured = line.match(/(\d+(?:[.,]\d+)?)\s*(kg|g|grams?|l|litres?|ml)\b/i);
+  if (measured) return normaliseMeasuredAmount(Number(measured[1].replace(',', '.')), measured[2]);
+  const pack = line.match(/\b(\d+)\s*(?:x\s*)?(?:pack|pk)\b/i);
+  if (pack) return { quantity: Number(pack[1]), unit: 'item' as Unit, quantityMode: 'exact' as QuantityMode };
+  return { quantity: null, unit: 'item' as Unit, quantityMode: 'unknown' as QuantityMode };
+}
+
+function productNameFromLine(line: string) {
+  const alias = receiptAliases.find(([pattern]) => pattern.test(line));
+  if (alias) return alias[1];
+  return titleCase(line
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:kg|g|grams?|l|litres?|ml)\b/ig, '')
+    .replace(/\b\d+\s*(?:pack|pk)\b/ig, '')
+    .replace(/\b(?:tesco|sainsbury(?:'s)?|waitrose|aldi|lidl|morrisons|asda|co-op)\b/ig, '')
+    .replace(/[^a-zA-Z\s'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim());
+}
+
+/** Conservative receipt parsing: product names plus only weights explicitly printed on a line. */
+export function parseReceiptCandidates(text: string): ParsedFoodText[] {
+  const candidates: ParsedFoodText[] = [];
+  const seen = new Set<string>();
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || knownBrandOrReceiptLine.test(line) || /^£?\d+[.,]\d{2}$/.test(line)) continue;
+    const alias = receiptAliases.find(([pattern]) => pattern.test(line));
+    if (!alias) continue;
+    const name = alias[1];
+    const key = canonicalise(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({ name, ...amountFromProductLine(line), storage: storageFor(name) });
+  }
+  return candidates;
+}
+
+/** Package OCR parser. It extracts one product name and an explicitly printed weight, volume or pack count. */
+export function parsePackageText(text: string): ParsedFoodText | null {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !/^(receipt|subtotal|total|vat|card|cash|change)\b/i.test(line));
+  const aliased = lines.find((line) => receiptAliases.some(([pattern]) => pattern.test(line)));
+  const fallback = [...lines].sort((a, b) => b.replace(/[^a-z]/gi, '').length - a.replace(/[^a-z]/gi, '').length)[0];
+  const line = aliased ?? fallback;
+  if (!line) return null;
+  const name = productNameFromLine(line);
+  if (!name || name.length < 2) return null;
+  return { name, ...amountFromProductLine(text), storage: storageFor(name) };
 }

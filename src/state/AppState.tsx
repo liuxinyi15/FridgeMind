@@ -104,10 +104,8 @@ function recordUsabilityEvent(current: AppData, type: UsabilityEventType, metada
 }
 
 function createUsabilityFixture(taskId: UsabilityTaskId, current: AppData): AppData {
-  const fixture = createSeedData();
+  const fixture = taskId === 'task-1' || taskId === 'task-2' || taskId === 'task-3' ? createConsumerData() : createSeedData();
   fixture.experienceMode = 'research';
-  fixture.recipes = fixture.recipes.filter((recipe) => v02RecipeIds.has(recipe.id));
-  fixture.savedRecipes = fixture.savedRecipes.filter((saved) => v02RecipeIds.has(saved.recipeId));
   fixture.profile.onboardingComplete = true;
   fixture.usabilitySessions = current.usabilitySessions;
   fixture.currentUsabilitySessionId = current.currentUsabilitySessionId;
@@ -117,30 +115,10 @@ function createUsabilityFixture(taskId: UsabilityTaskId, current: AppData): AppD
     mushrooms.batches[0].physicalStock = 250;
     const cream = fixture.inventory.find((item) => item.canonicalName === 'cream')!;
     cream.batches[0] = { ...cream.batches[0], physicalStock: 200, quantityMode: 'exact', confidence: 'confirmed', quantityDescription: undefined };
+    const recipe = fixture.recipes.find((item) => item.id === 'recipe-mushroom-pasta');
+    if (recipe) recipe.ownership = 'personal';
   };
-  if (taskId === 'task-2') {
-    fixture.inventory.find((item) => item.canonicalName === 'mushroom')!.batches[0].physicalStock = 250;
-  }
-  if (taskId === 'task-3') {
-    const cream = fixture.inventory.find((item) => item.canonicalName === 'cream')!;
-    cream.batches[0] = { ...cream.batches[0], physicalStock: 200, quantityMode: 'exact', confidence: 'confirmed', quantityDescription: undefined };
-  }
-  if (taskId === 'task-4') {
-    fixture.shopping = [{
-      id: 'usability-purchased-mushrooms',
-      ingredientName: 'Mushrooms',
-      canonicalName: 'mushroom',
-      quantity: 80,
-      suggestedPurchaseQuantity: 250,
-      unit: 'g',
-      recipeId: 'recipe-mushroom-pasta',
-      recipeName: 'Mushroom Pasta',
-      reason: 'Needed for Mushroom Pasta. You have 120g; the recipe needs 200g.',
-      bought: true,
-      purchasedAt: new Date().toISOString(),
-    }];
-  }
-  if (taskId === 'task-5' || taskId === 'task-6') makeMushroomPastaReady();
+  if (taskId === 'task-4' || taskId === 'task-6' || taskId === 'task-7') makeMushroomPastaReady();
   if (taskId === 'task-7') {
     const base = new Date();
     const nextDay = new Date(base.getTime() + 86_400_000);

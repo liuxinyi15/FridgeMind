@@ -7,14 +7,13 @@ describe('usability task definitions', () => {
     expect(usabilityTasks.map((task) => task.id)).toEqual(['task-1', 'task-2', 'task-3', 'task-4', 'task-5', 'task-6', 'task-7']);
   });
 
-  it('uses distinct success events for each product-loop task', () => {
-    expect(taskCompletesFromEvent('task-1', 'recipe_opened')).toBe(true);
-    expect(taskCompletesFromEvent('task-1', 'meal_context_changed', { choice: 'eating_out' })).toBe(true);
-    expect(taskCompletesFromEvent('task-2', 'uncertainty_resolved')).toBe(true);
-    expect(taskCompletesFromEvent('task-3', 'shopping_item_added')).toBe(true);
-    expect(taskCompletesFromEvent('task-4', 'shopping_item_reconciled')).toBe(true);
-    expect(taskCompletesFromEvent('task-5', 'cooking_completed')).toBe(true);
-    expect(taskCompletesFromEvent('task-6', 'leftover_saved', { portions: 1 })).toBe(true);
+  it('uses distinct success events for each current-value task', () => {
+    expect(taskCompletesFromEvent('task-1', 'quick_add_parsed')).toBe(true);
+    expect(taskCompletesFromEvent('task-2', 'quick_add_parsed')).toBe(true);
+    expect(taskCompletesFromEvent('task-3', 'ocr_parse_reviewed')).toBe(true);
+    expect(taskCompletesFromEvent('task-4', 'recipe_opened')).toBe(true);
+    expect(taskCompletesFromEvent('task-5', 'recipe_opened')).toBe(true);
+    expect(taskCompletesFromEvent('task-6', 'cooking_completed')).toBe(true);
     expect(taskCompletesFromEvent('task-7', 'leftover_selected')).toBe(true);
   });
 });

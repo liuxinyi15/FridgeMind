@@ -24,7 +24,10 @@ test('participant query ID runs all seven tasks and exports one local session', 
       await page.goto('/test?participant=P01');
       await expect(page.getByRole('heading', { name: 'Task in progress' })).toBeVisible();
       await page.getByRole('button', { name: 'Continue task' }).click();
-      await page.getByRole('link', { name: 'Mushroom Pasta' }).first().click();
+      await page.getByRole('link', { name: 'Quick add foods' }).click();
+      await page.getByRole('button', { name: /Quick add foods/ }).click();
+      await page.getByLabel('Food names').fill('spinach, mushrooms');
+      await page.getByRole('button', { name: 'Review foods' }).click();
       await expect(page.getByRole('complementary', { name: 'Study task controls' })).toBeVisible();
       await expect(page.getByText('Task complete')).toHaveCount(0);
     }

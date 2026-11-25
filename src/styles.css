@@ -494,6 +494,12 @@ html[data-keyboard-open="true"] .page-content { padding-bottom: 1.25rem; scroll-
 .recipe-review { display: grid; gap: 1rem; }
 .recipe-cover-review { display: grid; gap: .5rem; }
 .recipe-cover-review label { display: flex; grid-template-columns: auto 1fr; align-items: center; gap: .45rem; }
+.quick-add-card textarea { min-height: 170px; font-size: 1rem; line-height: 1.5; }
+.study-recipe-asset { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: .75rem; align-items: center; margin: .4rem 0 .7rem; padding: .7rem; border: 1px solid var(--line); border-radius: 16px; background: var(--green-soft); }
+.study-recipe-asset img { width: 92px; height: 116px; border-radius: 9px; object-fit: cover; object-position: top; box-shadow: var(--shadow-sm); }
+.study-recipe-asset > div { display: grid; gap: .35rem; }
+.study-recipe-asset small { color: var(--muted); }
+.study-recipe-asset .button { width: fit-content; margin-top: .2rem; }
 .review-section-heading h2, .recipe-library-heading h2 { margin: 0; }
 .ingredient-edit-list .ingredient-edit { grid-template-columns: minmax(0,1.8fr) minmax(68px,.7fr) minmax(78px,.8fr) 36px; }
 .recipe-library-actions { margin-top: .75rem; }
@@ -511,6 +517,8 @@ html[data-keyboard-open="true"] .page-content { padding-bottom: 1.25rem; scroll-
   .ingredient-edit-list .ingredient-edit { grid-template-columns: minmax(0,1fr) 64px 72px 36px; gap: .3rem; }
   .ingredient-edit-list .ingredient-edit input, .ingredient-edit-list .ingredient-edit select { padding: .45rem; }
   .food-more-actions { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .study-recipe-asset { grid-template-columns: 76px minmax(0,1fr); }
+  .study-recipe-asset img { width: 76px; height: 98px; }
 }
 
 /* Research-only usability testing */

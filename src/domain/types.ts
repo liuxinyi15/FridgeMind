@@ -4,7 +4,7 @@ export type DateType = 'use_by' | 'best_before' | 'unknown';
 export type FoodState = 'fresh' | 'use_soon' | 'stable' | 'frozen' | 'unknown';
 export type StorageLocation = 'fridge' | 'freezer' | 'cupboard';
 export type Unit = 'g' | 'ml' | 'item' | 'tbsp' | 'tsp' | 'cup' | 'portion';
-export type ImportSource = 'manual' | 'photo' | 'receipt' | 'shopping' | 'cooking' | 'seeded';
+export type ImportSource = 'manual' | 'quick' | 'photo' | 'package' | 'receipt' | 'shopping' | 'cooking' | 'seeded';
 
 export interface CookingRoutine {
   cookingFrequency: '0' | '1-2' | '3-4' | '5-7' | '8+';
@@ -190,7 +190,11 @@ export type UsabilityEventType =
   | 'shopping_item_added' | 'duplicate_shopping_attempt'
   | 'shopping_item_reconciled' | 'duplicate_fridge_attempt'
   | 'cooking_started' | 'recipe_correction_opened' | 'cooking_completed'
-  | 'leftover_saved' | 'leftover_selected' | 'dead_end_marked';
+  | 'leftover_saved' | 'leftover_selected' | 'dead_end_marked'
+  | 'ocr_started' | 'ocr_completed' | 'ocr_returned_empty' | 'ocr_text_corrected'
+  | 'ocr_parse_reviewed' | 'ocr_fallback_used'
+  | 'quick_add_opened' | 'quick_add_parsed' | 'quick_add_item_edited'
+  | 'receipt_ocr_used' | 'package_ocr_used';
 
 export interface UsabilityEvent {
   id: string;
